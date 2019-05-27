@@ -5,5 +5,10 @@
 	"copyright": "Copyright © 2019, Carsten Schlote",
 	"description": "A lightweight ACME protocol client written in the D computer language",
 	"license": "proprietary",
-	"name": "acme-lw-d"
+	"name": "acme-lw-d",
+	"versions": [ "STAGING" ],
+	"dependencies": {
+		"openssl": "~>2.0.0+1.1.0h"
+	},
+	"lflags": [ "-lcurl", "-lssl" ]
 }
