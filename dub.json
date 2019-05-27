@@ -1,0 +1,9 @@
+{
+	"authors": [
+		"Carsten Schlote"
+	],
+	"copyright": "Copyright © 2019, Carsten Schlote",
+	"description": "A lightweight ACME protocol client written in the D computer language",
+	"license": "proprietary",
+	"name": "acme-lw-d"
+}

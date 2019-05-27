@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/acme-lw-d
+acme-lw-d.so
+acme-lw-d.dylib
+acme-lw-d.dll
+acme-lw-d.a
+acme-lw-d.lib
+acme-lw-d-test-*
+*.exe
+*.o
+*.obj
+*.lst
