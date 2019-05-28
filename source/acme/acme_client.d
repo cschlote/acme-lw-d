@@ -27,8 +27,8 @@ import acme.openssl_helpers;
 
 /* ------------------------------------------------------------------ */
 
-enum directoryUrlProd = "https://acme-v01.api.letsencrypt.org/directory";
-enum directoryUrlStaging = "https://acme-staging.api.letsencrypt.org/directory";
+enum directoryUrlProd = "https://acme-v02.api.letsencrypt.org/directory";
+enum directoryUrlStaging = "https://acme-staging-v02.api.letsencrypt.org/directory";
 
 version (STAGING)
 	string directoryUrlInit = directoryUrlStaging;
@@ -63,15 +63,15 @@ struct AcmeResources
 	{
 		directoryJson = parseJSON(directory);
 		alias json = directoryJson;
-		if ("new-authz" in json) this.newAuthZUrl = json["new-authz"].str;
-		if ("new-cert" in json) this.newCertUrl = json["new-cert"].str;
-		if ("new-reg" in json) this.newRegUrl = json["new-reg"].str;
-		if ("revoke-cert" in json) this.revokeCrtUrl = json["revoke-cert"].str;
-		if ("key-change" in json) this.keyChangeUrl = json["key-change"].str;
+		if ("keyChange" in json) this.keyChangeUrl = json["keyChange"].str;
+		if ("newAccount" in json) this.newAccountUrl = json["newAccount"].str;
+		if ("newNonce" in json) this.newNOnceUrl = json["newNonce"].str;
+		if ("newOrder" in json) this.newOrderUrl = json["newOrder"].str;
+		if ("revokeCert" in json) this.revokeCrtUrl = json["revokeCert"].str;
 
-		if ("new-nonce" in json) this.newNOnceUrl = json["new-nonce"].str;
-		if ("new-account" in json) this.newAccountUrl = json["new-account"].str;
-		if ("new-order" in json) this.newOrderUrl = json["new-order"].str;
+		if ("newAuthz" in json) this.newAuthZUrl = json["newAuthz"].str;
+		if ("newCert" in json) this.newCertUrl = json["newCert"].str;
+		if ("newReg" in json) this.newRegUrl = json["newReg"].str;
 
 		if ("meta" in json) this.metaJson = json["meta"].toJSON;
 	}
@@ -93,22 +93,22 @@ struct AcmeResources
 unittest
 {
 	string dirTestData = q"({
-    "GGCJr9XCH_k": "https:\/\/community.letsencrypt.org\/t\/adding-random-entries-to-the-directory\/33417",
-    "key-change": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/key-change",
+    "Ca1Xc_O0Nwk": "https:\/\/community.letsencrypt.org\/t\/adding-random-entries-to-the-directory\/33417",
+    "keyChange": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/key-change",
     "meta": {
         "caaIdentities": [
             "letsencrypt.org"
         ],
-        "terms-of-service": "https:\/\/letsencrypt.org\/documents\/LE-SA-v1.2-November-15-2017.pdf",
+        "termsOfService": "https:\/\/letsencrypt.org\/documents\/LE-SA-v1.2-November-15-2017.pdf",
         "website": "https:\/\/letsencrypt.org\/docs\/staging-environment\/"
     },
-    "new-account": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-account",
-    "new-authz": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-authz",
-    "new-cert": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-cert",
-    "new-nonce": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-nonce",
-    "new-order": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-order",
-    "new-reg": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-reg",
-    "revoke-cert": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/revoke-cert"
+    "newAccount": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-acct",
+    "newAuthz": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-authz",
+    "newCert": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-cert",
+    "newNonce": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-nonce",
+    "newOrder": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-order",
+    "newReg": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-reg",
+    "revokeCert": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/revoke-cert"
 })";
 	void testcode(string url, bool dofullasserts = false )
 	{
@@ -123,16 +123,17 @@ unittest
 		}
 		writeln("Received directory data :\n", test.directoryJson.toPrettyString);
 		assert( test.directoryUrl !is null, "Shouldn't be null");
-		assert( test.newAuthZUrl !is null, "Shouldn't be null");
-		assert( test.newCertUrl !is null, "Shouldn't be null");
-		assert( test.newRegUrl !is null, "Shouldn't be null");
-		assert( test.revokeCrtUrl !is null, "Shouldn't be null");
+
 		assert( test.keyChangeUrl !is null, "Shouldn't be null");
+		assert( test.newAccountUrl !is null, "Shouldn't be null");
+		assert( test.newNOnceUrl !is null, "Shouldn't be null");
+		assert( test.newOrderUrl !is null, "Shouldn't be null");
+		assert( test.revokeCrtUrl !is null, "Shouldn't be null");
+		assert( test.metaJson !is null, "Shouldn't be null");
 		if (dofullasserts) {
-			assert( test.newNOnceUrl !is null, "Shouldn't be null");
-			assert( test.newAccountUrl !is null, "Shouldn't be null");
-			assert( test.newOrderUrl !is null, "Shouldn't be null");
-			assert( test.metaJson !is null, "Shouldn't be null");
+			assert( test.newAuthZUrl !is null, "Shouldn't be null");
+			assert( test.newCertUrl !is null, "Shouldn't be null");
+			assert( test.newRegUrl !is null, "Shouldn't be null");
 		}
 	}
 	writeln("**** Testing AcmeResources : Decode test vector");
