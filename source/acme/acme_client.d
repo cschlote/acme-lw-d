@@ -6,10 +6,9 @@ import std.conv;
 import std.datetime;
 import std.json;
 import std.net.curl;
+import std.stdio;
 import std.string;
 import std.typecons;
-
-import etc.c.curl;
 
 import deimos.openssl.evp;
 import deimos.openssl.pem;
@@ -17,16 +16,23 @@ import deimos.openssl.rsa;
 import deimos.openssl.x509v3;
 
 import acme.exception;
+import acme.curl_helpers;
+import acme.openssl_helpers;
 
 version (STAGING)
 	string directoryUrl = "https://acme-staging.api.letsencrypt.org/directory";
 else
 	string directoryUrl = "https://acme-v01.api.letsencrypt.org/directory";
 
+string newAuthZUrl; /// Endppoint auth url
+string newCertUrl;  /// Endpoint cert url
+
 /** An openssl certificate */
 struct Certificate
 {
+	/** The full CA chain with cert */
 	string fullchain;
+	/** The private key to sign requests */
 	string privkey;
 
 	// Note that neither of the 'Expiry' calls below require 'privkey'
@@ -60,7 +66,7 @@ struct Certificate
 			dt += dur!"seconds"(seconds + days * 3600 * 24);
 			return dt;
 		}
-	  	return extractExpiryData!(DateTime, extractor)(this);
+	  	return extractExpiryData!(DateTime, extractor)(this.fullchain);
 	}
 
 	/** Returns the 'Not After' result that openssl would display if
@@ -83,7 +89,7 @@ struct Certificate
 			}
 			return toString(b);
 		}
-		return extractExpiryData!(string, extractor)(this);
+		return extractExpiryData!(string, extractor)(this.fullchain);
 	}
 }
 
@@ -91,16 +97,20 @@ struct Certificate
 class AcmeClient
 {
 public:
-	/**
-		The signingKey is the Acme account private key used to sign
-		requests to the acme CA, in pem format.
+	/** Instanciate a AcmeClient using a private key for signing
+
+		Param:
+		   signingKey - The signingKey is the Acme account private
+		   		key used to sign requests to the acme CA, in pem format.
+		Throws: an instance of AcmeException on fatal or unexpected errors.
 	*/
 	this(string signingKey)
 	{
 		impl_ = new AcmeClientImpl(signingKey);
 	}
 
-	/**
+	/** Expected response setup callback
+
 		The implementation of this function allows Let's Encrypt to
 		verify that the requestor has control of the domain name.
 
@@ -113,25 +123,30 @@ public:
 		Let's Encrypt already believes the caller has control
 		of the domain name.
 	*/
-	alias Callback =  void function (  string domainName,
-								string url,
-								string keyAuthorization);
+	alias Callback =
+		void function (
+			string domainName,
+			string url,
+			string keyAuthorization);
 
-	/**
-		Issue a certificate for the domainNames.
+	/** Issue a certificate for the domainNames.
+
 		The first one will be the 'Subject' (CN) in the certificate.
-
-		throws std::exception, usually an instance of AcmeException
+		Params:
+		  domainNames - list of domains
+		  callback - pointer to function to setup expected response
+		             on given URL
+		Returns: A Certificate object or null.
+		Throws: an instance of AcmeException on fatal or unexpected errors.
 	*/
 	Certificate issueCertificate(string[] domainNames, Callback callback)
 	{
 		return impl_.issueCertificate(domainNames, callback);
 	}
 
-	// Call once before instantiating AcmeClient.
-	static void init()
+	/// Call once before instantiating AcmeClient to setup endpoints
+	static void setupEndpoints()
 	{
-		//initHttp();
 		try
 		{
 			char[] directory = get(directoryUrl);
@@ -141,349 +156,37 @@ public:
 		}
 		catch (Exception e)
 		{
-			throw new AcmeException("Unable to initialize endpoints from " ~ directoryUrl ~ ": " ~ e.msg);
+			string msg = "Unable to initialize endpoints from " ~ directoryUrl ~ ": " ~ e.msg;
+			throw new AcmeException(msg, __FILE__, __LINE__, e );
 		}
 	}
 
-	// Call once before application shutdown.
-	static void teardown()
-	{
-		//teardownHttp();
-	}
 private:
 	AcmeClientImpl* impl_;
 }
 
+/* ----------------------------------------------------------------------- */
 
-string newAuthZUrl;
-string newCertUrl;
 
-//// Smart pointers for OpenSSL types
-//template<typename TYPE, void (*FREE)(TYPE *)>
-//struct Ptr
-//{
-//	Ptr()
-//		: ptr_(null)
-//	{
-//	}
-//
-//	Ptr(TYPE * ptr)
-//		: ptr_(ptr)
-//	{
-//		if (!ptr_)
-//		{
-//			throw acme.AcmeException("Out of memory?");
-//		}
-//	}
-//
-//	~Ptr()
-//	{
-//		if (ptr_)
-//		{
-//			FREE(ptr_);
-//		}
-//	}
-//
-//	Ptr& operator = (Ptr&& ptr)
-//	{
-//		if (!ptr.ptr_)
-//		{
-//			throw acme.AcmeException("Out of memory?");
-//		}
-//
-//		ptr_ = move(ptr.ptr_);
-//		ptr.ptr_ = null;
-//
-//		return *this;
-//	}
-//
-//	bool operator ! () const
-//	{
-//		return !ptr_;
-//	}
-//
-//	TYPE * operator * () const
-//	{
-//		return ptr_;
-//	}
-//
-//	void clear()
-//	{
-//		ptr_ = null;
-//	}
-//
-//private:
-//	TYPE * ptr_;
-//};
-//
-//typedef Ptr<BIO, BIO_free_all>                                  BIOptr;
-//typedef Ptr<RSA, RSA_free>                                      RSAptr;
-//typedef Ptr<BIGNUM, BN_clear_free>                              BIGNUMptr;
-//typedef Ptr<EVP_MD_CTX, EVP_MD_CTX_free>                        EVP_MD_CTXptr;
-//typedef Ptr<EVP_PKEY, EVP_PKEY_free>                            EVP_PKEYptr;
-//typedef Ptr<X509, X509_free>                                    X509ptr;
-//typedef Ptr<X509_REQ, X509_REQ_free>                            X509_REQptr;
 
-//template<typename T>
-//T toT(const vector<char>& v)
-//{
-//	return v;
-//}
-//
-//template<>
-//string toT(const vector<char>& v)
-//{
-//	return string(&v.front(), v.size());
-//}
 
-char[] toVector(BIO * bio)
-{
-	enum buffSize = 1024;
-	char[buffSize] buffer;
-	char[] rc;
-
-	int count = 0;
-	do
-	{
-		count = BIO_read(bio, buffer.ptr, buffSize);
-		if (count > 0)
-		{
-			rc ~= buffer[0..count];
-		}
-	}
-	while (count > 0);
-
-	return rc;
-}
-
-auto toString(BIO *bio)
-{
-	char[] v = toVector(bio);
-	return to!string(v);
-}
-
-char[] base64Encode(T)(ref T t)
-{
-	// Use openssl to do this since we're already linking to it.
-
-	// Don't need (or want) a BIOptr since BIO_push chains it to b64
-	BIO * bio = BIO_new(BIO_s_mem());
-	BIO * b64 = BIO_new(BIO_f_base64());
-
-	// OpenSSL inserts new lines by default to make it look like PEM format.
-	// Turn that off.
-	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-
-	BIO_push(b64, bio);
-	if (BIO_write(b64, cast(void*)(&t), t.sizeof.to!int) <= 0 ||
-		BIO_flush(b64) < 0)
-	{
-		throw new AcmeException("Can't encode into base64.");
-	}
-	return toVector(bio);
-}
-
-char[] urlSafeBase64Encode(T)(T t)
-{
-	char[] s = base64Encode(t);
-
-	// We need url safe base64 encoding and openssl only gives us regular
-	// base64, so we convert.
-	const size_t len = s.length;
-	for (size_t i = 0; i < len; ++i)
-	{
-		if (s[i] == '+')
-		{
-			s[i] = '-';
-		}
-		else if (s[i] == '/')
-		{
-			s[i] = '_';
-		}
-		else if (s[i] == '=')
-		{
-			s.length = i;
-			break;
-		}
-	}
-	return s;
-}
-
-// Url safe encoding
-char[] urlSafeBase64Encode(const BIGNUM * bn)
-{
-	int numBytes = BN_num_bytes(bn);
-	ubyte[] buffer;
-	buffer.length = numBytes;
-	BN_bn2bin(bn, buffer.ptr);
-
-	return urlSafeBase64Encode(buffer);
-}
-
-// returns pair<CSR, privateKey>
-Tuple!(string, string) makeCertificateSigningRequest(string[] domainNames)
-{
-	BIGNUM* bn = BN_new();
-	if (!BN_set_word(bn, RSA_F4))
-	{
-		throw new AcmeException("Can't set word.");
-	}
-
-	RSA* rsa = RSA_new();
-
-	enum bits = 2048;
-	if (!RSA_generate_key_ex(rsa, bits, bn, null))
-	{
-		throw new AcmeException("Can't generate key.");
-	}
-
-	X509_REQ* req = X509_REQ_new();
-	auto name = domainNames[0];
-
-	X509_NAME* cn = X509_REQ_get_subject_name(req);
-	if (!X509_NAME_add_entry_by_txt(cn,
-									"CN",
-									MBSTRING_ASC,
-									cast(const ubyte*)(name.toStringz),
-									-1, -1, 0))
-	{
-		throw new AcmeException("Can't add CN entry.");
-	}
-
-	if (domainNames.length > 1)
-	{
-		// We have multiple Subject Alternative Names
-		auto extensions = sk_X509_EXTENSION_new_null();
-		if (!extensions)
-		{
-			throw new AcmeException("Unable to allocate Subject Alternative Name extensions");
-		}
-
-		for (int i = 1; i < domainNames.length; i++)
-		{
-			name = domainNames[i];
-			auto cstr = ("DNS:" ~ name).toStringz;
-			auto nid = X509V3_EXT_conf_nid(null, null, NID_subject_alt_name, cast(char*)cstr);
-			if (!sk_X509_EXTENSION_push(extensions, nid))
-			{
-				throw new AcmeException("Unable to add Subject Alternative Name to extensions");
-			}
-		}
-
-		if (X509_REQ_add_extensions(req, extensions) != 1)
-		{
-			throw new AcmeException("Unable to add Subject Alternative Names to CSR");
-		}
-
-		sk_X509_EXTENSION_pop_free(extensions, &X509_EXTENSION_free);
-	}
-
-	EVP_PKEY* key = EVP_PKEY_new();
-	if (!EVP_PKEY_assign_RSA(key, rsa))
-	{
-		throw new AcmeException("Can't set RSA key.");
-	}
-	rsa = null;     // rsa will be freed when key is freed.
-
-	BIO* keyBio = BIO_new(BIO_s_mem());
-	if (PEM_write_bio_PrivateKey(keyBio, key, null, null, 0, null, null) != 1)
-	{
-		throw new AcmeException("Can't set private key.");
-	}
-
-	string privateKey = toString(keyBio);
-
-	if (!X509_REQ_set_pubkey(req, key))
-	{
-		throw new AcmeException("Can't set subkey.");
-	}
-
-	if (!X509_REQ_sign(req, key, EVP_sha256()))
-	{
-		throw new AcmeException("Can't sign.");
-	}
-
-	BIO* reqBio = BIO_new(BIO_s_mem());
-	if (i2d_X509_REQ_bio(reqBio, req) < 0)
-	{
-		throw new AcmeException("Can't setup sign request");
-	}
-
-	return tuple(urlSafeBase64Encode(toVector(reqBio)).to!string, privateKey);
-}
-
-// Convert certificate from DER format to PEM format
-char[] DERtoPEM(char[] der)
-{
-	BIO* derBio = BIO_new(BIO_s_mem());
-	BIO_write(derBio, cast(const(void)*)der.ptr, der.length.to!int);
-	X509* x509 = d2i_X509_bio(derBio, null);
-
-	BIO* pemBio = BIO_new(BIO_s_mem());
-	PEM_write_bio_X509(pemBio, x509);
-
-	return toVector(pemBio);
-}
-
-string getIntermediateCertificate(string linkHeader)
-{
-	import std.regex;
-	// Link: <https://acme-v01.api.letsencrypt.org/acme/issuer-cert>;rel="up"
-	auto r = regex("^<(.*)>;rel=\"up\"$");
-	auto match = matchFirst(linkHeader, r);
-	if (match.empty)
-	{
-		throw new AcmeException("Unable to parse 'Link' header with value " ~ linkHeader);
-	}
-	char[] url = cast(char[])match[1];
-	auto reps = get(url);
-	return cast(string)DERtoPEM( cast(char[])reps );
-}
-
-char[] sha256(char[] s)
-{
-	ubyte[SHA256_DIGEST_LENGTH] hash;
-	SHA256_CTX sha256;
-	if (!SHA256_Init(&sha256) ||
-		!SHA256_Update(&sha256, s.ptr, s.length) ||
-		!SHA256_Final(hash.ptr, &sha256))
-	{
-		throw new AcmeException("Error hashing a string");
-	}
-	return urlSafeBase64Encode(hash);
-}
-
-// https://tools.ietf.org/html/rfc7638
-char[] makeJwkThumbprint(char[] jwk)
-{
-	char[] strippedJwk = jwk;
-	// strip whitespace
-	import std.uni;
-	foreach ( i, ref v ; jwk)
-		if (!isSpace(v)) strippedJwk ~= v;
-
-	return sha256(strippedJwk);
-}
-
-//alias extractorCB = function (const ASN1_TIME *);
-//const auto function (const ASN1_TIME *) pure @system
-T extractExpiryData(T, alias extractor)(const(Certificate) certificate)
-{
-	BIO* bio = BIO_new(BIO_s_mem());
-	if ( BIO_write(bio, cast(const(void)*) certificate.fullchain.ptr, to!int(certificate.fullchain.length)) <= 0)
-	{
-		throw new AcmeException("Can't write to BIO struct.");
-	}
-	X509* x509 = PEM_read_bio_X509(bio, null, null, null);
-
-	ASN1_TIME * t = X509_get_notAfter(x509);
-
-	return extractor(t);
-}
-
-/** The implementation of the  AcmeClient */
+/** The implementation of the AcmeClient
+ *
+ * This structure implements the basic steps to renew a certificate
+ * with the ACME protocol.
+ *
+ * See: https://tools.ietf.org/html/rfc8555
+ *      Automatic Certificate Management Environment (ACME)
+ */
 struct AcmeClientImpl
 {
+private:
+	EVP_PKEY*   privateKey_;     // Copy of private key as ASC PEM
+	JSONValue   jwkData_;        // JWK object
+	char[]      jwkThumbprint_;  // SHA256 of jwk string;
+	char[]      headerSuffix_;   // JSON string to add to headers
+
+public:
 	this(string accountPrivateKey)
 	{
 		privateKey_ = EVP_PKEY_new();
@@ -501,33 +204,39 @@ struct AcmeClientImpl
 			{
 				throw new AcmeException("Unable to assign RSA to private key");
 			}
+			JSONValue jvJWK;
+			jvJWK["kty"] = "RSA";
+			jvJWK["e"] = getBigNumber(rsa.e);
+			jvJWK["n"] = getBigNumber(rsa.n);
+			jwkData_ = jvJWK;
 
-			const(BIGNUM)* n, e, d;
-			//~ extern(C) void RSA_get0_key(const RSA *r,
-                   //~ const BIGNUM **n, const BIGNUM **e, const BIGNUM **d);
-			//~ RSA_get0_key(rsa, &n, &e, &d);
+			// https://tools.ietf.org/html/rfc7638
+			jwkThumbprint_ = sha256Encode( jvJWK.toJSON ).base64EncodeUrlSafe;
 
-			char[] jwkValue = q"( {
-									"e":")" ~ urlSafeBase64Encode(e) ~ q"(",
-									"kty": "RSA",
-									"n":")" ~ urlSafeBase64Encode(n) ~ q"("
-								})";
-			jwkThumbprint_ = makeJwkThumbprint(jwkValue);
+			JSONValue jvHSuffix;
+			jvHSuffix["alg"] = "RS256";
+			jvHSuffix["jwk"] = jvJWK;
 
-			headerSuffix_ = q"(
-					"alg": "RS256",
-					"jwk": )" ~ jwkValue ~ "}";
+			headerSuffix_ = jvHSuffix.toString.dup;
+
 		}
 	}
 
+	/** Sign a given string with an SHA256 hash
+	 *
+	 * Param:
+	 *  s - string to sign
+	 *  Returns:
+	 *    A SHA256 signature on provided data
+	 * See: https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying
+	 */
 	char[] sign(char[] s)
 	{
-		// https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying
 		size_t signatureLength = 0;
 
-		EVP_MD_CTX* context = null; //EVP_MD_CTX_create();
+		EVP_MD_CTX* context = EVP_MD_CTX_create();
 		const EVP_MD * sha256 = EVP_get_digestbyname("SHA256");
-		if (!sha256 ||
+		if ( !sha256 ||
 			EVP_DigestInit_ex(context, sha256, null) != 1 ||
 			EVP_DigestSignInit(context, null, sha256, null, privateKey_) != 1 ||
 			EVP_DigestSignUpdate(context, s.toStringz, s.length) != 1 ||
@@ -543,31 +252,49 @@ struct AcmeClientImpl
 			throw new AcmeException("Error creating SHA256 digest in final signature");
 		}
 
-		return urlSafeBase64Encode(signature);
+		return base64EncodeUrlSafe(signature);
 	}
 
-	T sendRequest(T)(string url, string payload, Tuple!(string, string) * header = null)
+	alias sendRequestTuple = Tuple!(string, "key", string, "value");
+	/// Send a salted request payload to CA server
+	T sendRequest(T)(string url, string payload, sendRequestTuple * header = null)
 	{
-		char[] protectd = q"({"nonce": ")" ~
-									getHeader(directoryUrl, "Replay-Nonce") ~ "\"," ~
-									headerSuffix_;
+		// Get the NOnce number from server
+		auto nonce = getHeader(directoryUrl, "Replay-Nonce");
+		assert(nonce !is null, "Can't get the NOnce from " ~ directoryUrl);
 
-		protectd = urlSafeBase64Encode(protectd);
-		char[] payld = urlSafeBase64Encode(payload);
+		// Create protection data
+		JSONValue jvReqHeader;
+		jvReqHeader["nonce"] = nonce;
+		jvReqHeader["alg"] = "RS256";
+		jvReqHeader["jwk"] = jwkData_;
+		char[] protectd = jvReqHeader.toJSON.dup;
+		//~ char[] protectd = q"({"nonce": ")" ~ nonce ~ "\"," ~ headerSuffix_;
 
-		char[] signature = sign(protectd ~ "." ~ payld);
+		protectd = base64EncodeUrlSafe(protectd);
 
-		char[] body_ = "{" ~
-						q"("protected": ")" ~ protectd ~ "\","  ~
-						q"("payload": ")" ~ payld ~ "\"," ~
-						q"("signature": ")" ~ signature ~ "\"}";
+		char[] payld = base64EncodeUrlSafe(payload);
 
-		Response response = doPost(url, cast(string)body_, cast(char*)(header ? (*header)[0] : null));
+		auto signData = protectd ~ "." ~ payld;
+		writefln("Data to sign: %s", signData);
+		char[] signature = sign(signData);
+		writefln("Signature: %s", signature);
+
+		JSONValue jvBody;
+		jvBody["protected"] = protectd;
+		jvBody["payload"] = payld;
+		jvBody["signature"] = signature;
+		char[] body_ = jvBody.toJSON.dup;
+		writefln("Body: %s", jvBody.toPrettyString);
+
+		char[] headerkey;
+		if (header !is null) headerkey = (*header).key.dup;
+		doPostTuple response = doPost(url, body_, headerkey);
 		if (header)
 		{
-			(*header)[1] = response.headerValue_;
+			(*header).value = response.headerValue;
 		}
-		return to!T(response.response_);
+		return to!T(response.response);
 	}
 
 	// Throws if the challenge isn't accepted (or on timeout)
@@ -584,9 +311,12 @@ struct AcmeClientImpl
 		enum count = 10;
 		do
 		{
+			// sleep for a second
 			import core.thread;
-			//~ sleep(1_000_000);    // sleep for a second
-			char[] response = doGet(cast(char[])verificationUri);
+			Thread.sleep(dur!"seconds"(1));
+
+			// get response from verification URL
+			char[] response = get(verificationUri);
 			auto json = parseJSON(response);
 			if (json["status"].str == "valid")
 			{
@@ -597,33 +327,35 @@ struct AcmeClientImpl
 		throw new AcmeException("Failure / timeout verifying challenge passed");
 	}
 
+	/** Issue a certificate request for a set of domains
+
+	Params:
+	  domainNames - a list of domain name, first one is cert subject.
+	Returns:
+	  A filled Certificate object.
+	*/
 	Certificate issueCertificate(string[] domainNames, AcmeClient.Callback callback)
 	{
-		if (domainNames.empty())
+		if (domainNames.empty)
 		{
 			throw new AcmeException("There must be at least one domain name in a certificate");
 		}
 
-		// Pass any challenges we need to pass to make the CA believe we're
-		// entitled to a certificate.
+		/* Pass any challenges we need to pass to make the CA believe we're entitled to a certificate. */
 		foreach (domain ; domainNames)
 		{
-			string payload = q"(
-								{
-									"resource": "new-authz",
-									"identifier":
-									{
-										"type": "dns",
-										"value": ")" ~ domain ~ q"("
-									}
-								}
-								)";
+			JSONValue jvPayload, jvPayload2;
+			jvPayload2["type"] = "dns";
+			jvPayload2["value"] = domain;
+			jvPayload["resource"] = "new-authz";
+			jvPayload["identifier"] = jvPayload2;
+			string payload = jvPayload.toString;
+
 			string response = sendRequest!string(newAuthZUrl, payload);
 
 			auto json = parseJSON(response);
 
-			/**
-			 * If you pass a challenge, that's good for 300 days. The cert is only good for 90.
+			/* If you pass a challenge, that's good for 300 days. The cert is only good for 90.
 			 * This means for a while you can re-issue without passing another challenge, so we
 			 * check to see if we need to validate again.
 			 *
@@ -631,176 +363,79 @@ struct AcmeClientImpl
 			 * by the time the certificate is requested. The assumption is that client retries
 			 * will deal with this.
 			 */
-			if (json["status"].str != "valid")
+			writeln(json.toPrettyString);
+			if ( ("status" in json) &&
+			     (json.type == JSONType.string) &&
+			     (json["status"].str != "valid") )
 			{
-				auto challenges = json["challenges"];
-			/+	foreach ( challenge ; challenges)
-				{
-					if (challenge["type"].str == "http-01")
+				if ("challenges" in json) {
+					auto challenges = json["challenges"];
+					foreach ( i, challenge ; challenges.array)
 					{
-						string token = challenge["token"].str;
-						string url = "http://" ~ domain ~ "/.well-known/acme-challenge/" ~ token;
-						string keyAuthorization = token ~ "." ~ jwkThumbprint_;
-						callback(domain, url, keyAuthorization);
-						verifyChallengePassed(challenge, keyAuthorization);
-						break;
+						if ( ("type" in challenge) && (challenge["type"].str == "http-01") )
+						{
+							string token = challenge["token"].str;
+							string url = "http://" ~ domain ~ "/.well-known/acme-challenge/" ~ token;
+							string keyAuthorization = token ~ "." ~ jwkThumbprint_.to!string;
+							callback(domain, url, keyAuthorization);
+							verifyChallengePassed(challenge, keyAuthorization);
+							break;
+						}
 					}
-				} +/
+				}
+			} else {
+				writefln("Send payload: \n%s", jvPayload.toPrettyString);
+				writefln("Got failure response:\n%s", json.toPrettyString);
+				throw new AcmeException(json.toPrettyString);
 			}
 		}
 
 		// Issue the certificate
 		auto r = makeCertificateSigningRequest(domainNames);
-		string csr = r[0];
-		string privateKey = r[1];
+		string csr = r.csr;
+		string privateKey = r.pkey;
 
-		Tuple!(string, string) header = tuple("Link", "");
+		// Send CSRs and get the intermediate certs
+		sendRequestTuple header = tuple("Link", "");
 
-		auto der = sendRequest!(char[])(newCertUrl,
-					q"(   {
-								"resource": "new-cert",
-								"csr": ")" ~ csr ~ q"("
-							 })", &header);
+		JSONValue ncrs;
+		ncrs["resource"] = "new-cert";
+		ncrs["csr"] = csr;
 
+		auto der = sendRequest!(char[])(newCertUrl, ncrs.toJSON, &header);
+
+		// Create a container object
 		Certificate cert;
-		cert.fullchain = cast(string)DERtoPEM(der) ~ cast(string)getIntermediateCertificate(header[1]);
+		cert.fullchain = convertDERtoPEM(der) ~ cast(string)getIntermediateCertificate(header[1]);
 		cert.privkey = privateKey;
 		return cert;
 	}
+}
 
-private:
-	char[]      headerSuffix_;
-	EVP_PKEY*   privateKey_;
-	char[]      jwkThumbprint_;
-};
-
-
-void doCurl(CURL* curl, string url)
+/** Get the issuer certificate from a 'Link' response header
+ *
+ * Param:
+ *  linkHeader - ResponseHeader Line of the form
+ *               Link: <https://acme-v01.api.letsencrypt.org/acme/issuer-cert>;rel="up"
+ *
+ * Returns:
+ *   Pem-encoded issuer certificate string
+ */
+string getIntermediateCertificate(string linkHeader)
 {
-	auto res = curl_easy_perform(curl);
-	if (res != CurlError.ok)
+	/* Extract the URL from the Header */
+	import std.regex;
+	// Link: <https://acme-v01.api.letsencrypt.org/acme/issuer-cert>;rel="up"
+	auto r = regex("^<(.*)>;rel=\"up\"$");
+	auto match = matchFirst(linkHeader, r);
+	if (match.empty)
 	{
-		auto str = cast(string)getCurlError(cast(char[])("Failure contacting " ~ url ~ " to read a header."), res);
-		throw new AcmeException(str);
+		throw new AcmeException("Unable to parse 'Link' header with value " ~ linkHeader);
 	}
+	char[] url = cast(char[])match[1];
 
-	long responseCode;
-	curl_easy_getinfo(curl, CurlInfo.response_code, &responseCode);
-	if (responseCode / 100 != 2)
-	{
-		// If it's not a 2xx response code, throw.
-		throw new AcmeException("Response code of " ~ to!string(responseCode) ~ " contacting " ~ url);
-	}
-}
-
-string getHeader(string url, string headerKey)
-{
-	CURL* curl;
-	curl_easy_setopt(curl, CurlOption.url, url.toStringz);
-
-	// Does a HEAD request
-	curl_easy_setopt(curl, CurlOption.nobody, 1);
-
-	curl_easy_setopt(curl, CurlOption.headerfunction, &headerCallback);
-
-	Tuple!(string, string) header = tuple(headerKey, "");
-	curl_easy_setopt(curl, CURLOPT_HEADERDATA, header);
-
-	doCurl(curl, url);
-
-	return header[1];
-}
-
-Response doPost(string url, string postBody, char * headerKey)
-{
-    Response response;
-    CURL* curl;
-
-    curl_easy_setopt(curl, CurlOption.url, url.toStringz);
-    curl_easy_setopt(curl, CurlOption.post, 1);
-    curl_easy_setopt(curl, CurlOption.postfields, postBody.toStringz);
-    curl_easy_setopt(curl, CurlOption.writefunction, &dataCallback);
-    curl_easy_setopt(curl, CurlOption.writedata, &response.response_);
-
-    Tuple!(string, string) header;
-    if (headerKey)
-    {
-        curl_easy_setopt(curl, CurlOption.headerfunction, &headerCallback);
-
-        header = tuple!(string,string)(headerKey.to!string, "");
-        curl_easy_setopt(curl, CurlOption.headerdata, &header);
-    }
-
-    doCurl(curl, url);
-
-    response.headerValue_ = header[1];
-
-    return response;
-}
-
-struct Response
-{
-    char[]   response_;
-    string   headerValue_;
-};
-
-char[] doGet(char[] url)
-{
-    char[] response;
-
-    CURL* curl;
-    curl_easy_setopt(curl, CurlOption.url, url.toStringz);
-    curl_easy_setopt(curl, CurlOption.writefunction, &dataCallback);
-    curl_easy_setopt(curl, CurlOption.writedata, &response);
-
-    doCurl(curl, url.to!string);
-
-    return response;
-}
-
-size_t dataCallback(void * buffer, size_t size, size_t nmemb, void * response)
-{
-    char* v = cast(char*)(response);
-
-    size_t byteCount = size * nmemb;
-    //~ string s = buffer[0..byteCount];
-
-    //~ size_t initSize = v.length;
-    //~ v.resize(v.size() + byteCount);
-    //~ memcpy(&v[initSize], buffer, byteCount);
-
-    return byteCount;
-}
-
-char[] getCurlError(char[] s, CURLcode c)
-{
-	import std.format;
-    return format( "%s: %s", s, curl_easy_strerror(c)).to!(char[]);
-}
-
-size_t headerCallback(void * buffer, size_t size, size_t nmemb, void * h)
-{
-    // header -> 'key': 'value'
-    Tuple!(string, string)* header = cast(Tuple!(string,string) *)(h);
-
-    size_t byteCount = size * nmemb;
-/+    if (byteCount >= (*header)[0].length)
-    {
-        if ((*header)[0] == cast(char *)(buffer)[0..(*header)[0].length])
-        {
-            string line(reinterpret_cast<const char *>(buffer), byteCount);
-
-            // Header looks like 'X: Y'. This gets the 'Y'
-            auto pos = line.find(": ");
-            if (pos != string::npos)
-            {
-                string value = line.substr(pos + 2, byteCount - pos - 2);
-
-                // Trim trailing whitespace
-                header.second = value.erase(value.find_last_not_of(" \n\r") + 1);
-            }
-        }
-    }
-+/
-    return byteCount;
+	/* Download the issuer certificate */
+	auto reps = get(url);
+	auto rstr = convertDERtoPEM( reps );
+	return rstr;
 }
