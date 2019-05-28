@@ -3,7 +3,7 @@ import std.file;
 import std.getopt;
 import std.stdio;
 
-//import acme;
+import acme;
 import acme.acme_client;
 import acme.exception;
 
@@ -47,11 +47,14 @@ int main(string[] args)
 	int exitStatus = -1;
 	try
 	{
-		AcmeClient.setupEndpoints();
-		writeln( "Auth URL: ", newAuthZUrl);
-		writeln( "Cert URL: ", newCertUrl);
-
 		AcmeClient acmeClient = new AcmeClient(privateKeyData);
+
+		acmeClient.setupEndpoints();
+		writeln( "Auth URL: ", acmeClient.getAcmeRes.newAuthZUrl);
+		writeln( "Cert URL: ", acmeClient.getAcmeRes.newCertUrl);
+
+
+
 		Certificate certificate = acmeClient.issueCertificate(argDomainNames, &handleChallenge);
 
 		std.file.write("fullchain.pem", certificate.fullchain);

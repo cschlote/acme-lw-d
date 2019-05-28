@@ -1,5 +1,9 @@
 
-/** Simple client for ACME protocol */
+/** Simple client for ACME protocol
+ *
+ * This software provides a simple and minimalistic ACME client. It
+ * provides no fancy options, but sticks with the most common settings.
+ */
 module acme.acme_client;
 
 import std.conv;
@@ -15,17 +19,130 @@ import deimos.openssl.pem;
 import deimos.openssl.rsa;
 import deimos.openssl.x509v3;
 
+import acme;
 import acme.exception;
 import acme.curl_helpers;
 import acme.openssl_helpers;
 
-version (STAGING)
-	string directoryUrl = "https://acme-staging.api.letsencrypt.org/directory";
-else
-	string directoryUrl = "https://acme-v01.api.letsencrypt.org/directory";
+/* ------------------------------------------------------------------ */
 
-string newAuthZUrl; /// Endppoint auth url
-string newCertUrl;  /// Endpoint cert url
+enum directoryUrlProd = "https://acme-v01.api.letsencrypt.org/directory";
+enum directoryUrlStaging = "https://acme-staging.api.letsencrypt.org/directory";
+
+version (STAGING)
+	string directoryUrlInit = directoryUrlStaging;
+else
+	string directoryUrlInit = directoryUrlProd;
+
+/* ------------------------------------------------------------------ */
+
+/** This structure stores the resource url of the ACME server
+ */
+struct AcmeResources
+{
+	string directoryUrl;     /// Initial config url to directory resource
+	JSONValue directoryJson;
+
+	string newAuthZUrl;
+	string newCertUrl;
+	string newRegUrl;
+	string revokeCrtUrl;
+	string keyChangeUrl;
+
+	string newNOnceUrl;
+	string newAccountUrl;
+	string newOrderUrl;
+
+	string metaJson;
+
+	void init(string initstr = directoryUrlInit) {
+		directoryUrl = initstr;
+	}
+	void decodeDirectoryJson(const(char[]) directory)
+	{
+		directoryJson = parseJSON(directory);
+		alias json = directoryJson;
+		if ("new-authz" in json) this.newAuthZUrl = json["new-authz"].str;
+		if ("new-cert" in json) this.newCertUrl = json["new-cert"].str;
+		if ("new-reg" in json) this.newRegUrl = json["new-reg"].str;
+		if ("revoke-cert" in json) this.revokeCrtUrl = json["revoke-cert"].str;
+		if ("key-change" in json) this.keyChangeUrl = json["key-change"].str;
+
+		if ("new-nonce" in json) this.newNOnceUrl = json["new-nonce"].str;
+		if ("new-account" in json) this.newAccountUrl = json["new-account"].str;
+		if ("new-order" in json) this.newOrderUrl = json["new-order"].str;
+
+		if ("meta" in json) this.metaJson = json["meta"].toJSON;
+	}
+	void getResources()
+	{
+		try
+		{
+			char[] directory = get(this.directoryUrl);
+			decodeDirectoryJson(directory);
+		}
+		catch (Exception e)
+		{
+			string msg = "Unable to initialize resource url from " ~ this.directoryUrl ~ ": " ~ e.msg;
+			throw new AcmeException(msg, __FILE__, __LINE__, e );
+		}
+	}
+}
+
+unittest
+{
+	string dirTestData = q"({
+    "GGCJr9XCH_k": "https:\/\/community.letsencrypt.org\/t\/adding-random-entries-to-the-directory\/33417",
+    "key-change": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/key-change",
+    "meta": {
+        "caaIdentities": [
+            "letsencrypt.org"
+        ],
+        "terms-of-service": "https:\/\/letsencrypt.org\/documents\/LE-SA-v1.2-November-15-2017.pdf",
+        "website": "https:\/\/letsencrypt.org\/docs\/staging-environment\/"
+    },
+    "new-account": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-account",
+    "new-authz": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-authz",
+    "new-cert": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-cert",
+    "new-nonce": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-nonce",
+    "new-order": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-order",
+    "new-reg": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/new-reg",
+    "revoke-cert": "https:\/\/acme-staging.api.letsencrypt.org\/acme\/revoke-cert"
+})";
+	void testcode(string url, bool dofullasserts = false )
+	{
+		AcmeResources test;
+		if (url is null) {
+			test.init();
+			test.decodeDirectoryJson(dirTestData);
+		} else {
+			test.init(url);
+			test.directoryUrl = url;
+			test.getResources();
+		}
+		writeln("Received directory data :\n", test.directoryJson.toPrettyString);
+		assert( test.directoryUrl !is null, "Shouldn't be null");
+		assert( test.newAuthZUrl !is null, "Shouldn't be null");
+		assert( test.newCertUrl !is null, "Shouldn't be null");
+		assert( test.newRegUrl !is null, "Shouldn't be null");
+		assert( test.revokeCrtUrl !is null, "Shouldn't be null");
+		assert( test.keyChangeUrl !is null, "Shouldn't be null");
+		if (dofullasserts) {
+			assert( test.newNOnceUrl !is null, "Shouldn't be null");
+			assert( test.newAccountUrl !is null, "Shouldn't be null");
+			assert( test.newOrderUrl !is null, "Shouldn't be null");
+			assert( test.metaJson !is null, "Shouldn't be null");
+		}
+	}
+	writeln("**** Testing AcmeResources : Decode test vector");
+	testcode(null, true);
+	writeln("**** Testing AcmeResources : Use staging server : ", directoryUrlStaging);
+	testcode(directoryUrlStaging);
+	writeln("**** Testing AcmeResources : Use production server : ", directoryUrlProd);
+	testcode(directoryUrlProd);
+}
+
+/* ------------------------------------------------------------------ */
 
 /** An openssl certificate */
 struct Certificate
@@ -97,6 +214,11 @@ struct Certificate
 class AcmeClient
 {
 public:
+	AcmeResources* getAcmeRes()
+	{
+		return &(impl_.acmeRes);
+	}
+
 	/** Instanciate a AcmeClient using a private key for signing
 
 		Param:
@@ -130,36 +252,24 @@ public:
 			string keyAuthorization);
 
 	/** Issue a certificate for the domainNames.
-
-		The first one will be the 'Subject' (CN) in the certificate.
-		Params:
-		  domainNames - list of domains
-		  callback - pointer to function to setup expected response
-		             on given URL
-		Returns: A Certificate object or null.
-		Throws: an instance of AcmeException on fatal or unexpected errors.
-	*/
+	 *
+	 * The first one will be the 'Subject' (CN) in the certificate.
+	 * Params:
+	 *   domainNames - list of domains
+	 *   callback - pointer to function to setup expected response
+	 *              on given URL
+	 * Returns: A Certificate object or null.
+	 * Throws: an instance of AcmeException on fatal or unexpected errors.
+	 */
 	Certificate issueCertificate(string[] domainNames, Callback callback)
 	{
 		return impl_.issueCertificate(domainNames, callback);
 	}
 
 	/// Call once before instantiating AcmeClient to setup endpoints
-	static void setupEndpoints()
+	void setupEndpoints()
 	{
-		try
-		{
-			char[] directory = get(directoryUrl);
-			auto json = parseJSON(directory);
-			writeln("Directory: ", json.toPrettyString);
-			newAuthZUrl = json["new-authz"].str;
-			newCertUrl = json["new-cert"].str;
-		}
-		catch (Exception e)
-		{
-			string msg = "Unable to initialize endpoints from " ~ directoryUrl ~ ": " ~ e.msg;
-			throw new AcmeException(msg, __FILE__, __LINE__, e );
-		}
+		impl_.acmeRes.getResources();
 	}
 
 private:
@@ -190,6 +300,8 @@ private:
 	string      headerSuffix_;   // JSON string to add to headers
 
 public:
+	AcmeResources acmeRes;
+
 	/** Construct the AcmeClient
 	 *
 	 * Param:
@@ -197,6 +309,8 @@ public:
 	 */
 	this(string accountPrivateKey)
 	{
+		acmeRes.init();
+
 		privateKey_ = EVP_PKEY_new();
 		// Create the private key and 'header suffix', used to sign LE certs.
 		{
@@ -283,8 +397,8 @@ public:
 	T sendRequest(T)(string url, string payload, sendRequestTuple * header = null)
 	{
 		/* Get a NOnce number from server */
-		auto nonce = getHeader(directoryUrl, "Replay-Nonce");
-		assert(nonce !is null, "Can't get the NOnce from " ~ directoryUrl);
+		auto nonce = getHeader(acmeRes.directoryUrl, "Replay-Nonce");
+		assert(nonce !is null, "Can't get the NOnce from " ~ acmeRes.directoryUrl);
 
 		// Create protection data
 		JSONValue jvReqHeader;
@@ -374,7 +488,7 @@ public:
 			jvPayload["identifier"] = jvPayload2;
 			string payload = jvPayload.toString;
 
-			string response = sendRequest!string(newAuthZUrl, payload);
+			string response = sendRequest!string(acmeRes.newAuthZUrl, payload);
 
 			auto json = parseJSON(response);
 
@@ -425,7 +539,7 @@ public:
 		ncrs["resource"] = "new-cert";
 		ncrs["csr"] = csr;
 
-		auto der = sendRequest!(char[])(newCertUrl, ncrs.toJSON, &header);
+		auto der = sendRequest!(char[])(acmeRes.newCertUrl, ncrs.toJSON, &header);
 
 		// Create a container object
 		Certificate cert;
