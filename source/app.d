@@ -1,6 +1,7 @@
 
 import std.file;
 import std.getopt;
+import std.json;
 import std.stdio;
 
 import acme;
@@ -50,6 +51,7 @@ int main(string[] args)
 		AcmeClient acmeClient = new AcmeClient(privateKeyData);
 
 		acmeClient.setupEndpoints();
+		writeln( acmeClient.getAcmeRes.directoryJson.toPrettyString() );
 		writeln( "Auth URL: ", acmeClient.getAcmeRes.newAuthZUrl);
 		writeln( "Cert URL: ", acmeClient.getAcmeRes.newCertUrl);
 

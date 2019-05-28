@@ -14,6 +14,7 @@ import std.stdio;
 import std.string;
 import std.typecons;
 
+import deimos.openssl.asn1;
 import deimos.openssl.evp;
 import deimos.openssl.pem;
 import deimos.openssl.rsa;
@@ -171,11 +172,10 @@ struct Certificate
 			// https://stackoverflow.com/questions/10975542/asn1-time-to-time-t-conversion
 
 			int days, seconds;
-			//~ extern(C) int ASN1_TIME_diff(int *pday, int *psec, const ASN1_TIME *from, const ASN1_TIME *to);
-			//~ if (!ASN1_TIME_diff(&days, &seconds, null, t))
-			//~ {
-				//~ throw new AcmeException("Can't get time diff.");
-			//~ }
+			if (!ASN1_TIME_diff(&days, &seconds, null, t))
+			{
+				throw new AcmeException("Can't get time diff.");
+			}
 			// Hackery here, since the call to time(0) will not necessarily match
 			// the equivilent call openssl just made in the 'diff' call above.
 			// Nonetheless, it'll be close at worst.
@@ -297,7 +297,6 @@ private:
 	string      jwkString_;      // JWK as plain JSON string
 	ubyte[]     jwkSHAHash_;     // The SHA256 hash value of jwkString_
 	string      jwkThumbprint_;  // Base64 url-safe string of jwkSHAHash_
-	string      headerSuffix_;   // JSON string to add to headers
 
 public:
 	AcmeResources acmeRes;
@@ -337,14 +336,6 @@ public:
 			jwkString_ = jvJWK.toJSON;
 			jwkSHAHash_ = sha256Encode( jwkString_ );
 			jwkThumbprint_ = jwkSHAHash_.base64EncodeUrlSafe.idup;
-
-			// The JWK is part of some other JSON object
-			JSONValue jvHSuffix;
-			jvHSuffix["alg"] = "RS256";
-			jvHSuffix["jwk"] = jvJWK;
-
-			headerSuffix_ = jvHSuffix.toJSON;
-
 		}
 	}
 
@@ -406,7 +397,6 @@ public:
 		jvReqHeader["alg"] = "RS256";
 		jvReqHeader["jwk"] = jwkData_;
 		char[] protectd = jvReqHeader.toJSON.dup;
-		//~ char[] protectd = q"({"nonce": ")" ~ nonce ~ "\"," ~ headerSuffix_;
 
 		protectd = base64EncodeUrlSafe(protectd);
 
