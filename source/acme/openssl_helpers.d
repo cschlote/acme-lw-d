@@ -40,6 +40,27 @@ string getBigNumber(BIGNUM* bn)
 	return num;
 }
 
+/** Get the content bytes of a big number as string
+ *
+ * Param:
+ *  bn - pointer to a big number structure
+ * Returns:
+ *  a string representing the BIGNUM
+ */
+ubyte[] getBigNumberBytes(const BIGNUM* bn)
+{
+	/* Get number of bytes to store a BIGNUM */
+	int numBytes = BN_num_bytes(bn);
+	ubyte[] buffer;
+	buffer.length = numBytes;
+
+	/* Copy bytes of BIGNUM to our buffer */
+	BN_bn2bin(bn, buffer.ptr);
+
+	return buffer;
+}
+
+
 /* ----------------------------------------------------------------------- */
 
 /** Export BIO contents as an array of chars
@@ -163,13 +184,8 @@ char[] base64EncodeUrlSafe(T)(T t)
  */
 char[] base64EncodeUrlSafe(const BIGNUM* bn)
 {
-	/* Get number of bytes to store a BIGNUM */
-	int numBytes = BN_num_bytes(bn);
-	ubyte[] buffer;
-	buffer.length = numBytes;
-
-	/* Copy bytes of BIGNUM to our buffer */
-	BN_bn2bin(bn, buffer.ptr);
+	/* Get contents bytes of a BIGNUM */
+	ubyte[] buffer = getBigNumberBytes(bn);
 
 	/* Encode the buffer as URL-safe base64 string */
 	return base64EncodeUrlSafe(buffer);

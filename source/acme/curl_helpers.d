@@ -57,6 +57,13 @@ string getHeader(string url, string headerKey)
 
 alias doPostTuple = Tuple!(char[], "response", string, "headerValue");
 
+/** Do some posting, filter for some headerkey
+ *
+ * Params:
+ *  url - url to pst to
+ *  postBody - data to post
+ *  headerKey - responseheader to filter and return.
+ */
 doPostTuple doPost(string url, char[] postBody, char[] headerKey)
 {
     doPostTuple response;

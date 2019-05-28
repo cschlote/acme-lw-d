@@ -183,11 +183,18 @@ struct AcmeClientImpl
 {
 private:
 	EVP_PKEY*   privateKey_;     // Copy of private key as ASC PEM
-	JSONValue   jwkData_;        // JWK object
-	char[]      jwkThumbprint_;  // SHA256 of jwk string;
-	char[]      headerSuffix_;   // JSON string to add to headers
+	JSONValue   jwkData_;        // JWK object as JSONValue tree
+	string      jwkString_;      // JWK as plain JSON string
+	ubyte[]     jwkSHAHash_;     // The SHA256 hash value of jwkString_
+	string      jwkThumbprint_;  // Base64 url-safe string of jwkSHAHash_
+	string      headerSuffix_;   // JSON string to add to headers
 
 public:
+	/** Construct the AcmeClient
+	 *
+	 * Param:
+	 *   accountPrivateKey - the privat key for the operations
+	 */
 	this(string accountPrivateKey)
 	{
 		privateKey_ = EVP_PKEY_new();
@@ -205,20 +212,24 @@ public:
 			{
 				throw new AcmeException("Unable to assign RSA to private key");
 			}
-			JSONValue jvJWK;
-			jvJWK["kty"] = "RSA";
-			jvJWK["e"] = getBigNumber(rsa.e);
-			jvJWK["n"] = getBigNumber(rsa.n);
-			jwkData_ = jvJWK;
 
 			// https://tools.ietf.org/html/rfc7638
-			jwkThumbprint_ = sha256Encode( jvJWK.toJSON ).base64EncodeUrlSafe;
+			// JSON Web Key (JWK) Thumbprint
+			JSONValue jvJWK;
+			jvJWK["e"] = getBigNumberBytes(rsa.e).base64EncodeUrlSafe;
+			jvJWK["kty"] = "RSA";
+			jvJWK["n"] = getBigNumberBytes(rsa.n).base64EncodeUrlSafe;
+			jwkData_ = jvJWK;
+			jwkString_ = jvJWK.toJSON;
+			jwkSHAHash_ = sha256Encode( jwkString_ );
+			jwkThumbprint_ = jwkSHAHash_.base64EncodeUrlSafe.idup;
 
+			// The JWK is part of some other JSON object
 			JSONValue jvHSuffix;
 			jvHSuffix["alg"] = "RS256";
 			jvHSuffix["jwk"] = jvJWK;
 
-			headerSuffix_ = jvHSuffix.toString.dup;
+			headerSuffix_ = jvHSuffix.toJSON;
 
 		}
 	}
@@ -256,11 +267,22 @@ public:
 		return base64EncodeUrlSafe(signature);
 	}
 
+	/// Tuple for filtering of RequestHeaders
 	alias sendRequestTuple = Tuple!(string, "key", string, "value");
-	/// Send a salted request payload to CA server
+
+	/** Send a JWS request with payload to a CA server
+	 *
+	 * Params:
+	 *  url - Url to post to
+	 *  payload - data to send
+	 *  header - Pointer to RequestHeader filter tuple, containing key
+	 *     to find and value to store the matched result, if any.
+	 *
+	 * See: https://tools.ietf.org/html/rfc7515
+	 */
 	T sendRequest(T)(string url, string payload, sendRequestTuple * header = null)
 	{
-		// Get the NOnce number from server
+		/* Get a NOnce number from server */
 		auto nonce = getHeader(directoryUrl, "Replay-Nonce");
 		assert(nonce !is null, "Can't get the NOnce from " ~ directoryUrl);
 
