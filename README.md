@@ -39,6 +39,10 @@ This library uses a private key in PEM format. If you want to use an existing _L
 format. The [acme-tiny](https://github.com/diafygi/acme-tiny) library has good documentation on
 [how to convert](https://github.com/diafygi/acme-tiny#use-existing-lets-encrypt-key) it.
 
+```
+openssl genrsa -out key.pem 2048
+```
+
 #### Command Line Client
 
 The command line client is run as follows.
