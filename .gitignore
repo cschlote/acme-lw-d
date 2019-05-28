@@ -13,3 +13,4 @@ acme-lw-d-test-*
 *.o
 *.obj
 *.lst
+*~
