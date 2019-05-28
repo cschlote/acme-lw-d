@@ -151,6 +151,7 @@ public:
 		{
 			char[] directory = get(directoryUrl);
 			auto json = parseJSON(directory);
+			writeln("Directory: ", json.toPrettyString);
 			newAuthZUrl = json["new-authz"].str;
 			newCertUrl = json["new-cert"].str;
 		}
@@ -230,7 +231,7 @@ public:
 	 *    A SHA256 signature on provided data
 	 * See: https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying
 	 */
-	char[] sign(char[] s)
+	char[] signDataWithSHA256(char[] s)
 	{
 		size_t signatureLength = 0;
 
@@ -277,7 +278,7 @@ public:
 
 		auto signData = protectd ~ "." ~ payld;
 		writefln("Data to sign: %s", signData);
-		char[] signature = sign(signData);
+		char[] signature = signDataWithSHA256(signData);
 		writefln("Signature: %s", signature);
 
 		JSONValue jvBody;
