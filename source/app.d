@@ -72,13 +72,13 @@ int main(string[] args)
 		}
 
 		/* --- Issue a new cert process ----------------------------- */
-		certificate = acmeClient.issueCertificate(argDomainNames, &handleChallenge);
+		//~ certificate = acmeClient.issueCertificate(argDomainNames, &handleChallenge);
 
-		std.file.write("fullchain.pem", certificate.fullchain);
-		std.file.write("privkey.pem", certificate.privkey);
+		//~ std.file.write("fullchain.pem", certificate.fullchain);
+		//~ std.file.write("privkey.pem", certificate.privkey);
 
-		writeln( "Files 'fullchain.pem' and 'privkey.pem' have been written to the current directory.");
-		writeln( "Certificate expires on " ~ certificate.getExpiryDisplay() );
+		//~ writeln( "Files 'fullchain.pem' and 'privkey.pem' have been written to the current directory.");
+		//~ writeln( "Certificate expires on " ~ certificate.getExpiryDisplay() );
 	bailout:
 		exitStatus = 0;
 	}
