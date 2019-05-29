@@ -11,7 +11,9 @@ import acme.exception;
 /* Decode Commandline Options */
 string argPrivateKeyFile;    /// The path to the private key
 string[] argDomainNames;     /// The list of domain names
+string[] argContacts;        /// The list of account names
 bool argVerbose;             /// Verbosity mode?
+bool argTosAgree;            /// Agree to Terms of Service
 
 /** Programm Main */
 int main(string[] args)
@@ -25,6 +27,9 @@ int main(string[] args)
 		"key|k",     "The path to your private key PEM file", &argPrivateKeyFile,
 		std.getopt.config.required,
 		"domain|d",  "A domain name. Can be given multiple times. First entry will be subject name.", &argDomainNames,
+		std.getopt.config.required,
+		"contact|c", "A contact for the account. Can be given multiple times.", &argContacts,
+		"agree|y",   "Agree to TermsOfService", &argTosAgree,
 		"verbose|v", "Verbose output", &argVerbose);
 	if (helpInformation.helpWanted)
 	{
@@ -45,26 +50,36 @@ int main(string[] args)
 		return -1;
 	}
 
+	/* -------------------------------------------------------------- */
+
 	int exitStatus = -1;
 	try
 	{
+		Certificate certificate;
+
+		/* --- Create the ACME client object ------------------------ */
 		AcmeClient acmeClient = new AcmeClient(privateKeyData);
 
-		acmeClient.setupEndpoints();
-		writeln( acmeClient.getAcmeRes.directoryJson.toPrettyString() );
-		writeln( "Auth URL: ", acmeClient.getAcmeRes.newAuthZUrl);
-		writeln( "Cert URL: ", acmeClient.getAcmeRes.newCertUrl);
+		acmeClient.setupClient();
+		writeln( "Directory for ACME url ", acmeClient.acmeRes.directoryUrl);
+		writeln( acmeClient.acmeRes.directoryJson.toPrettyString() );
 
+		/* --- Create a new account --------------------------------- */
+		const bool nwaccrc = acmeClient.createNewAccount(argContacts, argTosAgree);
+		if (!nwaccrc) {
+			writeln("Failed to create new or obtain exiting account.");
+			goto bailout;
+		}
 
-
-		Certificate certificate = acmeClient.issueCertificate(argDomainNames, &handleChallenge);
+		/* --- Issue a new cert process ----------------------------- */
+		certificate = acmeClient.issueCertificate(argDomainNames, &handleChallenge);
 
 		std.file.write("fullchain.pem", certificate.fullchain);
 		std.file.write("privkey.pem", certificate.privkey);
 
 		writeln( "Files 'fullchain.pem' and 'privkey.pem' have been written to the current directory.");
 		writeln( "Certificate expires on " ~ certificate.getExpiryDisplay() );
-
+	bailout:
 		exitStatus = 0;
 	}
 	catch (AcmeException e)

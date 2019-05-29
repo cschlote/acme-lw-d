@@ -25,36 +25,40 @@ import acme.exception;
 import acme.curl_helpers;
 import acme.openssl_helpers;
 
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------ */
 
 enum directoryUrlProd = "https://acme-v02.api.letsencrypt.org/directory";
 enum directoryUrlStaging = "https://acme-staging-v02.api.letsencrypt.org/directory";
 
 version (STAGING)
-	string directoryUrlInit = directoryUrlStaging;
+	enum directoryUrlInit = directoryUrlStaging;
 else
-	string directoryUrlInit = directoryUrlProd;
+	enum directoryUrlInit = directoryUrlProd;
 
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------ */
 
 /** This structure stores the resource url of the ACME server
  */
 struct AcmeResources
 {
-	string directoryUrl;     /// Initial config url to directory resource
-	JSONValue directoryJson;
+	string nonce;            /// The Nonce for the next JWS transfer
 
-	string newAuthZUrl;
+	string directoryUrl;     /// Initial config url to directory resource
+	JSONValue directoryJson; /// JSON string returned returned from directoryURL
+
+	string newNOnceUrl;      /// Url to newNonce resource
+	string newAccountUrl;    /// Url to newAccount resource
+	string newOrderUrl;      /// Url to newOrder resource
+	string newAuthZUrl;      /// Url to newAuthz resource
+	string revokeCrtUrl;     /// Url to revokeCert resource
+	string keyChangeUrl;     /// Url to keyChange resource
+
+	string metaJson;         /// Metadata as JSON string (undecoded)
+
+	// FIXME
+	string accountUrl;       /// Account Url for the key
 	string newCertUrl;
 	string newRegUrl;
-	string revokeCrtUrl;
-	string keyChangeUrl;
-
-	string newNOnceUrl;
-	string newAccountUrl;
-	string newOrderUrl;
-
-	string metaJson;
 
 	void init(string initstr = directoryUrlInit) {
 		directoryUrl = initstr;
@@ -104,10 +108,8 @@ unittest
     },
     "newAccount": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-acct",
     "newAuthz": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-authz",
-    "newCert": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-cert",
     "newNonce": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-nonce",
     "newOrder": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-order",
-    "newReg": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-reg",
     "revokeCert": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/revoke-cert"
 })";
 	void testcode(string url, bool dofullasserts = false )
@@ -132,8 +134,6 @@ unittest
 		assert( test.metaJson !is null, "Shouldn't be null");
 		if (dofullasserts) {
 			assert( test.newAuthZUrl !is null, "Shouldn't be null");
-			assert( test.newCertUrl !is null, "Shouldn't be null");
-			assert( test.newRegUrl !is null, "Shouldn't be null");
 		}
 	}
 	writeln("**** Testing AcmeResources : Decode test vector");
@@ -144,7 +144,7 @@ unittest
 	testcode(directoryUrlProd);
 }
 
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------ */
 
 /** An openssl certificate */
 struct Certificate
@@ -211,101 +211,85 @@ struct Certificate
 	}
 }
 
-/** A simple ACME client */
+/* ------------------------------------------------------------------------ */
+
+/** A simple ACME v2 client
+ *
+ * This class implements the ACME v2 protocol to obtain signed SSL
+ * certificates.
+ */
 class AcmeClient
 {
-public:
-	AcmeResources* getAcmeRes()
+private:
+	EVP_PKEY*   privateKey_;     /// Copy of private key as ASC PEM
+
+	JSONValue   jwkData_;        /// JWK object as JSONValue tree
+	string      jwkString_;      /// JWK as plain JSON string
+	ubyte[]     jwkSHAHash_;     /// The SHA256 hash value of jwkString_
+	string      jwkThumbprint_;  /// Base64 url-safe string of jwkSHAHash_
+
+	/** Create and send a JWS request with payload to a ACME enabled CAA server
+	 *
+	 * Params:
+	 *  url - Url to post to
+	 *  payload - data to send
+	 *  status - pointer to StatusLine
+	 *  rheaders - Pointer to ResponseHeaders received from server, or null
+	 *
+	 * See: https://tools.ietf.org/html/rfc7515
+	 */
+	T sendRequest(T)(string url, string payload, HTTP.StatusLine* status = null, string[string]* rheaders = null)
+			if ( is(T : string) || is(T : char[]) || is(T : ubyte[]))
 	{
-		return &(impl_.acmeRes);
+		string nonce = this.acmeRes.nonce;
+		assert(nonce !is null && !nonce.empty, "Invalid Nonce value.");
+		writeln("Use NOnce: ", nonce);
+
+		/* Create protection data */
+		JSONValue jvReqHeader;
+		jvReqHeader["alg"] = "RS256";
+		jvReqHeader["jwk"] = jwkData_;
+		jvReqHeader["nonce"] = nonce;
+		jvReqHeader["url"] = url;
+		char[] protectd = jvReqHeader.toJSON.dup;
+
+		protectd = base64EncodeUrlSafe(protectd);
+
+		char[] payld = base64EncodeUrlSafe(payload);
+
+		auto signData = protectd ~ "." ~ payld;
+		writefln("Data to sign: %s", signData);
+		char[] signature = signDataWithSHA256(signData, privateKey_);
+		writefln("Signature: %s", signature);
+
+		JSONValue jvBody;
+		jvBody["protected"] = protectd;
+		jvBody["payload"] = payld;
+		jvBody["signature"] = signature;
+		char[] body_ = jvBody.toJSON.dup;
+		writefln("Body: %s", jvBody.toPrettyString);
+
+		auto response = doPost(url, body_, status, rheaders);
+		if (rheaders && ("replay-nonce" in *rheaders)) {
+			writeln( "ResponseHeaders: ");
+			foreach( v ; (*rheaders).byKey) writeln("  ", v, " : ", (*rheaders)[v]);
+			acmeRes.nonce = (*rheaders)["replay-nonce"];
+		}
+		writeln( "Response: ", response);
+
+		return to!T(response);
 	}
+
+public:
+	AcmeResources acmeRes;       // The Url to the ACME resources
+
 
 	/** Instanciate a AcmeClient using a private key for signing
-
-		Param:
-		   signingKey - The signingKey is the Acme account private
-		   		key used to sign requests to the acme CA, in pem format.
-		Throws: an instance of AcmeException on fatal or unexpected errors.
-	*/
-	this(string signingKey)
-	{
-		impl_ = new AcmeClientImpl(signingKey);
-	}
-
-	/** Expected response setup callback
-
-		The implementation of this function allows Let's Encrypt to
-		verify that the requestor has control of the domain name.
-
-		The callback may be called once for each domain name in the
-		'issueCertificate' call. The callback should do whatever is
-		needed so that a GET on the 'url' returns the 'keyAuthorization',
-		(which is what the Acme protocol calls the expected response.)
-
-		Note that this function may not be called in cases where
-		Let's Encrypt already believes the caller has control
-		of the domain name.
-	*/
-	alias Callback =
-		void function (
-			string domainName,
-			string url,
-			string keyAuthorization);
-
-	/** Issue a certificate for the domainNames.
 	 *
-	 * The first one will be the 'Subject' (CN) in the certificate.
-	 * Params:
-	 *   domainNames - list of domains
-	 *   callback - pointer to function to setup expected response
-	 *              on given URL
-	 * Returns: A Certificate object or null.
-	 * Throws: an instance of AcmeException on fatal or unexpected errors.
-	 */
-	Certificate issueCertificate(string[] domainNames, Callback callback)
-	{
-		return impl_.issueCertificate(domainNames, callback);
-	}
-
-	/// Call once before instantiating AcmeClient to setup endpoints
-	void setupEndpoints()
-	{
-		impl_.acmeRes.getResources();
-	}
-
-private:
-	AcmeClientImpl* impl_;
-}
-
-/* ----------------------------------------------------------------------- */
-
-
-
-
-/** The implementation of the AcmeClient
- *
- * This structure implements the basic steps to renew a certificate
- * with the ACME protocol.
- *
- * See: https://tools.ietf.org/html/rfc8555
- *      Automatic Certificate Management Environment (ACME)
- */
-struct AcmeClientImpl
-{
-private:
-	EVP_PKEY*   privateKey_;     // Copy of private key as ASC PEM
-	JSONValue   jwkData_;        // JWK object as JSONValue tree
-	string      jwkString_;      // JWK as plain JSON string
-	ubyte[]     jwkSHAHash_;     // The SHA256 hash value of jwkString_
-	string      jwkThumbprint_;  // Base64 url-safe string of jwkSHAHash_
-
-public:
-	AcmeResources acmeRes;
-
-	/** Construct the AcmeClient
-	 *
-	 * Param:
-	 *   accountPrivateKey - the privat key for the operations
+	 *  Param:
+	 *     accountPrivateKey - The signingKey is the Acme account private
+	 *     		key used to sign requests to the acme CA, in pem format.
+	 *  Throws: an instance of AcmeException on fatal or unexpected errors.
 	 */
 	this(string accountPrivateKey)
 	{
@@ -339,135 +323,127 @@ public:
 			jwkThumbprint_ = jwkSHAHash_.base64EncodeUrlSafe.idup;
 		}
 	}
-
-	/** Sign a given string with an SHA256 hash
+	/** Call once after instantiating AcmeClient to setup parameters
 	 *
-	 * Param:
-	 *  s - string to sign
-	 *  Returns:
-	 *    A SHA256 signature on provided data
-	 * See: https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying
+	 * This function will fetch the directory from the ACME CA server and
+	 * extracts the Urls.
+	 *
+	 * Also fetches the initial NOnce value for the next JWS transfer.
 	 */
-	char[] signDataWithSHA256(char[] s)
+	void setupClient()
 	{
-		size_t signatureLength = 0;
+		acmeRes.getResources();
+		// Get initial Nonce
+		this.getNonce();
 
-		EVP_MD_CTX* context = EVP_MD_CTX_create();
-		const EVP_MD * sha256 = EVP_get_digestbyname("SHA256");
-		if ( !sha256 ||
-			EVP_DigestInit_ex(context, sha256, null) != 1 ||
-			EVP_DigestSignInit(context, null, sha256, null, privateKey_) != 1 ||
-			EVP_DigestSignUpdate(context, s.toStringz, s.length) != 1 ||
-			EVP_DigestSignFinal(context, null, &signatureLength) != 1)
-		{
-			throw new AcmeException("Error creating SHA256 digest");
-		}
-
-		ubyte[] signature;
-		signature.length = signatureLength;
-		if (EVP_DigestSignFinal(context, signature.ptr, &signatureLength) != 1)
-		{
-			throw new AcmeException("Error creating SHA256 digest in final signature");
-		}
-
-		return base64EncodeUrlSafe(signature);
 	}
 
-	/// Tuple for filtering of RequestHeaders
-	alias sendRequestTuple = Tuple!(string, "key", string, "value");
-
-	/** Send a JWS request with payload to a CA server
+	/** Get a fresh and new Nonce from server
 	 *
-	 * Params:
-	 *  url - Url to post to
-	 *  payload - data to send
-	 *  header - Pointer to RequestHeader filter tuple, containing key
-	 *     to find and value to store the matched result, if any.
+	 * To start the communication with JWS, an initial Nonce value must be
+	 * fetched from the server.
 	 *
-	 * See: https://tools.ietf.org/html/rfc7515
+	 * The Nonce returned is internally store in the AcmeResource structure.
+	 *
+	 * Note:
+	 *   Use the Nonce of a JWS response header to update the Nonce for the
+	 *   next transfer! So, only a single call to this function is needed to
+	 *   setup the initial transfer.
+	 *
+	 * Returns:
+	 *   a fresh and new Nonce value.
 	 */
-	T sendRequest(T)(string url, string payload, sendRequestTuple * header = null)
+	string getNonce()
 	{
 		/* Get a NOnce number from server */
-		auto nonce = getHeader(acmeRes.directoryUrl, "Replay-Nonce");
-		assert(nonce !is null, "Can't get the NOnce from " ~ acmeRes.directoryUrl);
-
-		// Create protection data
-		JSONValue jvReqHeader;
-		jvReqHeader["nonce"] = nonce;
-		jvReqHeader["alg"] = "RS256";
-		jvReqHeader["jwk"] = jwkData_;
-		char[] protectd = jvReqHeader.toJSON.dup;
-
-		protectd = base64EncodeUrlSafe(protectd);
-
-		char[] payld = base64EncodeUrlSafe(payload);
-
-		auto signData = protectd ~ "." ~ payld;
-		writefln("Data to sign: %s", signData);
-		char[] signature = signDataWithSHA256(signData);
-		writefln("Signature: %s", signature);
-
-		JSONValue jvBody;
-		jvBody["protected"] = protectd;
-		jvBody["payload"] = payld;
-		jvBody["signature"] = signature;
-		char[] body_ = jvBody.toJSON.dup;
-		writefln("Body: %s", jvBody.toPrettyString);
-
-		char[] headerkey;
-		if (header !is null) headerkey = (*header).key.dup;
-		doPostTuple response = doPost(url, body_, headerkey);
-		if (header)
-		{
-			(*header).value = response.headerValue;
-		}
-		return to!T(response.response);
+		auto nonce = getResponseHeader(acmeRes.newNOnceUrl, "Replay-Nonce");
+		acmeRes.nonce = nonce;
+		return nonce;
 	}
 
-	// Throws if the challenge isn't accepted (or on timeout)
-	void verifyChallengePassed(JSONValue challenge, string keyAuthorization)
+	/** Create a new account and bind a key pair to it.
+	 *
+	 * Before we can do anything, we need to register an account and
+	 * bind a RSA/EC keypair to it, which is used for signatures in
+	 * JWS and to create the CSR.
+	 *
+	 * Params:
+	 *   contacts - list of contacts for the account
+	 *   tosAgreed - set this to true, when user ack on commandline. otherwise
+	 *               the default is false, and the CA server might refuse to
+	 *               operate in this case.
+	 *   useExisting - do not create a new account, but reuse the
+	 *                 existing one. Defaults to true.
+	 *
+	 * Note: tosAgreed must be queried from user, e.g. by setting a commandline
+	 *       option. This is required by the RFC8555.
+	 * Note: Usually there is no need to set useExisting to false. If set to
+	 *       true, an existing account for a JWK is returned or new one
+	 *       is created and returned.
+	 */
+	bool createNewAccount(string[] contacts, bool tosAgreed = false, bool useExisting = true)
 	{
-		// Tell the CA we're prepared for the challenge.
-		string verificationUri = challenge["uri"].str;
-		sendRequest!string(verificationUri, q"(  {
-														"resource": "challenge",
-														"keyAuthorization": ")" ~ keyAuthorization ~ "\"}" );
+		bool rc;
+		/* Create newAccount payload */
+		JSONValue jvPayload;
+		jvPayload["termsOfServiceAgreed"] = tosAgreed;
+		JSONValue jvContact = contacts;
+		jvPayload["contact"] = jvContact;
 
-		// Poll waiting for the CA to verify the challenge
-		int counter = 0;
-		enum count = 10;
-		do
+		string payload = jvPayload.toJSON;
+
+		string[string] rheaders;
+		import std.net.curl : HTTP;
+		HTTP.StatusLine statusLine;
+		string response = sendRequest!string(acmeRes.newAccountUrl, payload, &statusLine, &rheaders);
+		if (statusLine.code / 100 == 2)
 		{
-			// sleep for a second
-			import core.thread;
-			Thread.sleep(dur!"seconds"(1));
-
-			// get response from verification URL
-			char[] response = get(verificationUri);
+			acmeRes.accountUrl = rheaders["location"];
+			writeln("Account Location : ", acmeRes.accountUrl);
 			auto json = parseJSON(response);
-			if (json["status"].str == "valid")
-			{
-				return;
-			}
-		} while (counter++ < count);
+			writeln("Account Creation : ", json["createdAt"]);
+//~			rc = true;
+		}
 
-		throw new AcmeException("Failure / timeout verifying challenge passed");
+
+
+		return rc;
 	}
 
-	/** Issue a certificate request for a set of domains
-
-	Params:
-	  domainNames - a list of domain name, first one is cert subject.
-	Returns:
-	  A filled Certificate object.
+	/** Authorization setup callback
+   *
+	*	The implementation of this function allows Let's Encrypt to
+	*	verify that the requestor has control of the domain name.
+*
+	*	The callback may be called once for each domain name in the
+	*	'issueCertificate' call. The callback should do whatever is
+	*	needed so that a GET on the 'url' returns the 'keyAuthorization',
+	*	(which is what the Acme protocol calls the expected response.)
+*
+	*	Note that this function may not be called in cases where
+	*	Let's Encrypt already believes the caller has control
+	*	of the domain name.
 	*/
-	Certificate issueCertificate(string[] domainNames, AcmeClient.Callback callback)
+	alias Callback =
+		void function (
+			string domainName,
+			string url,
+			string keyAuthorization);
+
+	/** Issue a certificate for the domainNames.
+	 *
+	 * The first one will be the 'Subject' (CN) in the certificate.
+	 * Params:
+	 *   domainNames - list of domains
+	 *   callback - pointer to function to setup expected response
+	 *              on given URL
+	 * Returns: A Certificate object or null.
+	 * Throws: an instance of AcmeException on fatal or unexpected errors.
+	 */
+	Certificate issueCertificate(string[] domainNames, Callback callback)
 	{
 		if (domainNames.empty)
-		{
 			throw new AcmeException("There must be at least one domain name in a certificate");
-		}
 
 		/* Pass any challenges we need to pass to make the CA believe we're entitled to a certificate. */
 		foreach (domain ; domainNames)
@@ -479,7 +455,8 @@ public:
 			jvPayload["identifier"] = jvPayload2;
 			string payload = jvPayload.toString;
 
-			string response = sendRequest!string(acmeRes.newAuthZUrl, payload);
+			HTTP.StatusLine status;
+			string response = sendRequest!string(acmeRes.newAuthZUrl, payload, &status);
 
 			auto json = parseJSON(response);
 
@@ -524,28 +501,65 @@ public:
 		string privateKey = r.pkey;
 
 		// Send CSRs and get the intermediate certs
-		sendRequestTuple header = tuple("Link", "");
+		string[string] rheaders;
 
 		JSONValue ncrs;
 		ncrs["resource"] = "new-cert";
 		ncrs["csr"] = csr;
 
-		auto der = sendRequest!(char[])(acmeRes.newCertUrl, ncrs.toJSON, &header);
+		import std.net.curl : HTTP;
+		HTTP.StatusLine statusLine;
+		auto der = sendRequest!(char[])(acmeRes.newCertUrl, ncrs.toJSON, &statusLine, &rheaders);
 
 		// Create a container object
 		Certificate cert;
-		cert.fullchain = convertDERtoPEM(der) ~ cast(string)getIntermediateCertificate(header[1]);
+		cert.fullchain = convertDERtoPEM(der) ~ cast(string)getIntermediateCertificate(rheaders["Link"]);
 		cert.privkey = privateKey;
 		return cert;
 	}
+
+	// Throws if the challenge isn't accepted (or on timeout)
+	void verifyChallengePassed(JSONValue challenge, string keyAuthorization)
+	{
+		// Tell the CA we're prepared for the challenge.
+		string verificationUri = challenge["uri"].str;
+		import std.net.curl : HTTP;
+		HTTP.StatusLine statusLine;
+		sendRequest!string(verificationUri, q"(  {
+														"resource": "challenge",
+														"keyAuthorization": ")" ~ keyAuthorization ~ "\"}" );
+
+		// Poll waiting for the CA to verify the challenge
+		int counter = 0;
+		enum count = 10;
+		do
+		{
+			// sleep for a second
+			import core.thread;
+			Thread.sleep(dur!"seconds"(1));
+
+			// get response from verification URL
+			char[] response = get(verificationUri);
+			auto json = parseJSON(response);
+			if (json["status"].str == "valid")
+			{
+				return;
+			}
+		} while (counter++ < count);
+
+		throw new AcmeException("Failure / timeout verifying challenge passed");
+	}
 }
+
+/* ------------------------------------------------------------------------ */
+/* --- Helper Functions --------------------------------------------------- */
+/* ------------------------------------------------------------------------ */
 
 /** Get the issuer certificate from a 'Link' response header
  *
  * Param:
  *  linkHeader - ResponseHeader Line of the form
  *               Link: <https://acme-v01.api.letsencrypt.org/acme/issuer-cert>;rel="up"
- *
  * Returns:
  *   Pem-encoded issuer certificate string
  */

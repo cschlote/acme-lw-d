@@ -370,3 +370,38 @@ tupleCsrPkey makeCertificateSigningRequest(string[] domainNames)
 
 /* ----------------------------------------------------------------------- */
 
+/** Sign a given string with an SHA256 hash
+ *
+ * Param:
+ *  s - string to sign
+ *  privateKey - signing key to use
+ *
+ *  Returns:
+ *    A SHA256 signature on provided data
+ * See: https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying
+ */
+char[] signDataWithSHA256(char[] s, EVP_PKEY* privateKey)
+{
+	size_t signatureLength = 0;
+
+	EVP_MD_CTX* context = EVP_MD_CTX_create();
+	const EVP_MD * sha256 = EVP_get_digestbyname("SHA256");
+	if ( !sha256 ||
+		EVP_DigestInit_ex(context, sha256, null) != 1 ||
+		EVP_DigestSignInit(context, null, sha256, null, privateKey) != 1 ||
+		EVP_DigestSignUpdate(context, s.toStringz, s.length) != 1 ||
+		EVP_DigestSignFinal(context, null, &signatureLength) != 1)
+	{
+		throw new AcmeException("Error creating SHA256 digest");
+	}
+
+	ubyte[] signature;
+	signature.length = signatureLength;
+	if (EVP_DigestSignFinal(context, signature.ptr, &signatureLength) != 1)
+	{
+		throw new AcmeException("Error creating SHA256 digest in final signature");
+	}
+
+	return base64EncodeUrlSafe(signature);
+}
+

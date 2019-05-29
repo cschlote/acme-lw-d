@@ -36,7 +36,7 @@ string getCurlError(string s, CURLcode c)
 	Returns:
 	  the value of a given header or null
  */
-string getHeader(string url, string headerKey)
+string getResponseHeader(string url, string headerKey)
 {
 	string headerVal;
 
@@ -55,42 +55,50 @@ string getHeader(string url, string headerKey)
 
 /* ---------------------------------------------------------------------------- */
 
-alias doPostTuple = Tuple!(char[], "response", string, "headerValue");
-
 /** Do some posting, filter for some headerkey
  *
  * Params:
  *  url - url to pst to
  *  postBody - data to post
- *  headerKey - responseheader to filter and return.
+ *  rheaders - responseheader to return
+ *
+ * Returns:
+ *   the received payload of the POST operation
  */
-doPostTuple doPost(string url, char[] postBody, char[] headerKey)
+string doPost(string url, char[] postBody, HTTP.StatusLine* status, string[string]* rheaders)
 {
-    doPostTuple response;
+	string response;
 	string headerVal;
 
 	auto http = HTTP(url);
+	http.verbose = true;
 	http.method = HTTP.Method.post;
-	if (headerKey.empty == false)
-		http.onReceiveHeader =
-			(in char[] key, in char[] value)
-				{
-					writeln( "Response Header : ", key, " = ", value);
-					if (key.toLower == headerKey.toLower)
-						headerVal = value.idup;
-				};
+	http.addRequestHeader("Content-Type", "application/jose+json");
+
+	//~ http.onReceiveHeader =
+		//~ (in char[] key, in char[] value)
+			//~ {
+				//~ if (key.toLower == "Replay-Nonce".toLower)
+					//~ nonce = value.idup;
+			//~ };
 	http.onReceive =
 		(ubyte[] data)
 			{
 				writefln( "data: %s", to!string(data));
-				response.response ~= data;
+				response ~= data;
 				return data.length;
 			};
 	http.postData = postBody;
-	http.verbose = true;
+
 	http.perform();
 
-	response.headerValue = headerVal;
+	if (status !is null) *status = http.statusLine;
+
+	if (rheaders !is null)
+		*rheaders = http.responseHeaders;
+
 	return response;
 }
+
+/* ---------------------------------------------------------------------------- */
 
