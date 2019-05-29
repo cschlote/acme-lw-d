@@ -2,9 +2,11 @@
 
 This project is yet another [_Let's Encrypt_](https://letsencrypt.org) client. It has the following properties.
 
-* The main artifact is a D static library.
-* Functionality only supports creating and updating certificates using http challenges.
-* All code runs 'in process', i.e., no processes are spawned.
+* It is written in the D computer language.
+* WIP: The main artifact is a D static library.
+* A commandline tool provides all operations of RFC855 as best as possible
+* Tries to be a good example of D programming. It hast ddoc and unittest
+  support.
 
 #### Building and Installing
 
@@ -20,6 +22,14 @@ On Red Hat based systems this will do it.
 yum install dub openssl-devel curl-devel
 ```
 
+Workaround for problems with dub:openssl package
+```
+cd <somepath>
+git clone https://github.com/cschlote/openssl.git
+cd openssl && git checkout fixup_EVP_MD_CTX_new
+dub add-local <somepath>/openssl
+```
+
 To build and install run:
 
 ```
@@ -27,6 +37,7 @@ dub build
 ```
 
 To run against the _Let's Encrypt_ staging environment generate your makefiles with this.
+(NOT WORKING YET)
 
 ```
 dub build -c acme-staging
@@ -39,6 +50,7 @@ This library uses a private key in PEM format. If you want to use an existing _L
 format. The [acme-tiny](https://github.com/diafygi/acme-tiny) library has good documentation on
 [how to convert](https://github.com/diafygi/acme-tiny#use-existing-lets-encrypt-key) it.
 
+Create a SSL key pair with:
 ```
 openssl genrsa -out key.pem 2048
 ```
@@ -48,25 +60,19 @@ openssl genrsa -out key.pem 2048
 The command line client is run as follows.
 
 ```
-acme_lw_d <filename of account private key> <domain name> ...
-```
-
-Multiple domain names can be on the command line.
-
-The behavior is similar to the official _Let's Encrypt_ client run as follows:
-
-```
-certbot certonly --manual -d <domain name>
+./acme-lw-d -k key.pem -d honk.com -d bubu.com -y -c "mailto:santaclaus@northpol.org"
+./acme-lw-d -h
 ```
 
 #### Library API
 
-The API of the library is documented in its [source file](source/acme/acme-lw.d). The command line client [source](source/app.d)
-provides an example of how it's used.
+The API of the library is documented in its [source file](source/acme/acme-lw.d). The command line client
+[source](source/app.d) provides an example of how it's used.
 
-All methods report errors by throwing std.exception, which will normally be an instance of acme.AcmeException.
-
+All methods report errors by throwing some exception, which will normally be an instance of acme.AcmeException.
 
 #### ToDOs
 
-Split code into a library package and an optional CLI client, which uses the library package.
+* Create a new SSL private/public key pair in program, if not existent and allowed by cmdline arg.
+  It avoids the use of the openssl command client (s.above)
+* Split code into a library package and an optional CLI client, which uses the library package.
