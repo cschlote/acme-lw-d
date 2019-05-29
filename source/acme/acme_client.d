@@ -400,13 +400,16 @@ public:
 		{
 			acmeRes.accountUrl = rheaders["location"];
 			writeln("Account Location : ", acmeRes.accountUrl);
+
 			auto json = parseJSON(response);
 			writeln("Account Creation : ", json["createdAt"]);
-//~			rc = true;
+			// ...
+			rc = true;
 		}
-
-
-
+		else {
+			writeln("Got http error: ", statusLine);
+			writeln("Got response:\n", response);
+		}
 		return rc;
 	}
 
