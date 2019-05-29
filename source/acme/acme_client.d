@@ -372,8 +372,10 @@ public:
 	 *   tosAgreed - set this to true, when user ack on commandline. otherwise
 	 *               the default is false, and the CA server might refuse to
 	 *               operate in this case.
-	 *   useExisting - do not create a new account, but reuse the
-	 *                 existing one. Defaults to true.
+	 *   onlyReturnExisting - do not create a new account, but only reuse an
+	 *                 existing one. Defaults to false. When set to true, an
+	 *                 account is never created, but only existing accounts are
+	 *                 returned.
 	 *
 	 * Note: tosAgreed must be queried from user, e.g. by setting a commandline
 	 *       option. This is required by the RFC8555.
@@ -381,7 +383,7 @@ public:
 	 *       true, an existing account for a JWK is returned or new one
 	 *       is created and returned.
 	 */
-	bool createNewAccount(string[] contacts, bool tosAgreed = false, bool useExisting = true)
+	bool createNewAccount(string[] contacts, bool tosAgreed = false, bool onlyReturnExisting = false)
 	{
 		bool rc;
 		/* Create newAccount payload */
@@ -409,23 +411,24 @@ public:
 		else {
 			writeln("Got http error: ", statusLine);
 			writeln("Got response:\n", response);
+			// FIXME handle different error types...
 		}
 		return rc;
 	}
 
 	/** Authorization setup callback
-   *
-	*	The implementation of this function allows Let's Encrypt to
-	*	verify that the requestor has control of the domain name.
-*
-	*	The callback may be called once for each domain name in the
-	*	'issueCertificate' call. The callback should do whatever is
-	*	needed so that a GET on the 'url' returns the 'keyAuthorization',
-	*	(which is what the Acme protocol calls the expected response.)
-*
-	*	Note that this function may not be called in cases where
-	*	Let's Encrypt already believes the caller has control
-	*	of the domain name.
+	*
+	*   The implementation of this function allows Let's Encrypt to
+	*   verify that the requestor has control of the domain name.
+	*
+	*   The callback may be called once for each domain name in the
+	*   'issueCertificate' call. The callback should do whatever is
+	*   needed so that a GET on the 'url' returns the 'keyAuthorization',
+	*   (which is what the Acme protocol calls the expected response.)
+	*
+	*   Note that this function may not be called in cases where
+	*   Let's Encrypt already believes the caller has control
+	*   of the domain name.
 	*/
 	alias Callback =
 		void function (
