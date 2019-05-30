@@ -61,11 +61,14 @@ string getResponseHeader(string url, string headerKey)
  *  url - url to pst to
  *  postBody - data to post
  *  rheaders - responseheader to return
+ *  nonce - pointer to nonce string, so that we can update it.
  *
  * Returns:
  *   the received payload of the POST operation
  */
-string doPost(string url, char[] postBody, HTTP.StatusLine* status, string[string]* rheaders)
+string doPost(string url, char[] postBody, HTTP.StatusLine* status,
+	string[string]* rheaders,
+	string* nonce)
 {
 	string response;
 	string headerVal;
@@ -75,16 +78,18 @@ string doPost(string url, char[] postBody, HTTP.StatusLine* status, string[strin
 	http.method = HTTP.Method.post;
 	http.addRequestHeader("Content-Type", "application/jose+json");
 
-	//~ http.onReceiveHeader =
-		//~ (in char[] key, in char[] value)
-			//~ {
-				//~ if (key.toLower == "Replay-Nonce".toLower)
-					//~ nonce = value.idup;
-			//~ };
+	http.onReceiveHeader =
+		(in char[] key, in char[] value)
+			{
+				if (key.toLower == "replay-nonce") {
+					*nonce = value.idup;
+					writeln("Setting new NOnce: ", *nonce);
+				}
+			};
 	http.onReceive =
 		(ubyte[] data)
 			{
-				writefln( "data: %s", to!string(data));
+				//writefln( "data: %s", to!string(data));
 				response ~= data;
 				return data.length;
 			};

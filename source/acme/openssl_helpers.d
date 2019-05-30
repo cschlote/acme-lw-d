@@ -126,7 +126,7 @@ char[] base64Encode(T)(T t)
 	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 
 	BIO_push(b64, bio);
-	if (BIO_write(b64, cast(void*)(t.ptr), t.length.to!int) <= 0 ||
+	if (BIO_write(b64, cast(void*)(t.ptr), t.length.to!int) < 0 ||
 		BIO_flush(b64) < 0)
 	{
 		throw new AcmeException("Can't encode data as base64.");

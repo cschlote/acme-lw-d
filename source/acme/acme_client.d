@@ -56,7 +56,7 @@ struct AcmeResources
 	string metaJson;         /// Metadata as JSON string (undecoded)
 
 	// FIXME
-	string accountUrl;       /// Account Url for the key
+	string accountUrl;       /// Account Url for a JWK.
 	string newCertUrl;
 	string newRegUrl;
 
@@ -228,9 +228,14 @@ private:
 	ubyte[]     jwkSHAHash_;     /// The SHA256 hash value of jwkString_
 	string      jwkThumbprint_;  /// Base64 url-safe string of jwkSHAHash_
 
-	/** Create and send a JWS request with payload to a ACME enabled CAA server
+	/** Create and send a JWS request with payload to a ACME enabled CA server
+	 *
+	 * Still unfinished template to build the JWS object. This code must be
+	 * refactored later.
 	 *
 	 * Params:
+	 *  T - return type
+	 *  useKID - useKID
 	 *  url - Url to post to
 	 *  payload - data to send
 	 *  status - pointer to StatusLine
@@ -238,17 +243,20 @@ private:
 	 *
 	 * See: https://tools.ietf.org/html/rfc7515
 	 */
-	T sendRequest(T)(string url, string payload, HTTP.StatusLine* status = null, string[string]* rheaders = null)
+	T sendRequest(T, bool useKID = true)(string url, string payload, HTTP.StatusLine* status = null, string[string]* rheaders = null)
 			if ( is(T : string) || is(T : char[]) || is(T : ubyte[]))
 	{
 		string nonce = this.acmeRes.nonce;
 		assert(nonce !is null && !nonce.empty, "Invalid Nonce value.");
-		writeln("Use NOnce: ", nonce);
+		writeln("Using NOnce: ", nonce);
 
 		/* Create protection data */
 		JSONValue jvReqHeader;
 		jvReqHeader["alg"] = "RS256";
-		jvReqHeader["jwk"] = jwkData_;
+		static if (useKID)
+			jvReqHeader["kid"] = acmeRes.accountUrl;
+		else
+			jvReqHeader["jwk"] = jwkData_;
 		jvReqHeader["nonce"] = nonce;
 		jvReqHeader["url"] = url;
 		char[] protectd = jvReqHeader.toJSON.dup;
@@ -258,24 +266,29 @@ private:
 		char[] payld = base64EncodeUrlSafe(payload);
 
 		auto signData = protectd ~ "." ~ payld;
-		writefln("Data to sign: %s", signData);
+		//writefln("Data to sign: %s", signData);
 		char[] signature = signDataWithSHA256(signData, privateKey_);
-		writefln("Signature: %s", signature);
+		//writefln("Signature: %s", signature);
 
 		JSONValue jvBody;
 		jvBody["protected"] = protectd;
 		jvBody["payload"] = payld;
 		jvBody["signature"] = signature;
 		char[] body_ = jvBody.toJSON.dup;
-		writefln("Body: %s", jvBody.toPrettyString);
+		//writefln("Body: %s", jvBody.toPrettyString);
 
-		auto response = doPost(url, body_, status, rheaders);
-		if (rheaders && ("replay-nonce" in *rheaders)) {
+		auto response = doPost(url, body_, status, rheaders, &(acmeRes.nonce));
+		if (rheaders) {
 			writeln( "ResponseHeaders: ");
-			foreach( v ; (*rheaders).byKey) writeln("  ", v, " : ", (*rheaders)[v]);
-			acmeRes.nonce = (*rheaders)["replay-nonce"];
+			foreach( v ; (*rheaders).byKey) {
+				writeln("  ", v, " : ", (*rheaders)[v]);
+				//~ if (v.toLower == "replay-nonce") {
+					//~ acmeRes.nonce = (*rheaders)[v];
+					//~ writeln("Setting new NOnce: ", acmeRes.nonce);
+				//~ }
+			}
 		}
-		writeln( "Response: ", response);
+		//writeln( "Response: ", response);
 
 		return to!T(response);
 	}
@@ -397,7 +410,7 @@ public:
 		string[string] rheaders;
 		import std.net.curl : HTTP;
 		HTTP.StatusLine statusLine;
-		string response = sendRequest!string(acmeRes.newAccountUrl, payload, &statusLine, &rheaders);
+		string response = sendRequest!(string,false)(acmeRes.newAccountUrl, payload, &statusLine, &rheaders);
 		if (statusLine.code / 100 == 2)
 		{
 			acmeRes.accountUrl = rheaders["location"];
@@ -436,9 +449,14 @@ public:
 			string url,
 			string keyAuthorization);
 
-	/** Issue a certificate for the domainNames.
+	/** Issue a certificate for domainNames
 	 *
-	 * The first one will be the 'Subject' (CN) in the certificate.
+	 * The client begins the certificate issuance process by sending a POST
+	 * request to the server's newOrder resource.  The body of the POST is a
+	 * JWS object whose JSON payload is a subset of the order object defined
+	 * in Section 7.1.3, containing the fields that describe the certificate
+	 * to be issued.
+	 *
 	 * Params:
 	 *   domainNames - list of domains
 	 *   callback - pointer to function to setup expected response
@@ -452,53 +470,88 @@ public:
 			throw new AcmeException("There must be at least one domain name in a certificate");
 
 		/* Pass any challenges we need to pass to make the CA believe we're entitled to a certificate. */
-		foreach (domain ; domainNames)
+		JSONValue[] jvIdentifiers;
+		jvIdentifiers.length = domainNames.length;
+		foreach (i, domain ; domainNames)
 		{
-			JSONValue jvPayload, jvPayload2;
-			jvPayload2["type"] = "dns";
-			jvPayload2["value"] = domain;
-			jvPayload["resource"] = "new-authz";
-			jvPayload["identifier"] = jvPayload2;
-			string payload = jvPayload.toString;
+			jvIdentifiers[i]["type"] = "dns";
+			jvIdentifiers[i]["value"] = domain;
+		}
+		JSONValue jvIdentifiersArray;
+		jvIdentifiersArray.array = jvIdentifiers;
 
-			HTTP.StatusLine status;
-			string response = sendRequest!string(acmeRes.newAuthZUrl, payload, &status);
+		JSONValue jvPayload;
+		// ISSUE: https://community.letsencrypt.org/t/notbefore-and-notafter-are-not-supported/54712
+		version (boulderHasBeforeAfter) {
+			jvPayload["notBefore"] = "2016-01-01T00:04:00+04:00";  // FIXME - use DateTime.to...()
+			jvPayload["notAfter"]  = "2020-01-01T00:04:00+04:00";  // FIXME - use DateTime.to...()
+		}
+		jvPayload["identifiers"]  = jvIdentifiersArray;
 
-			auto json = parseJSON(response);
+		string payload = jvPayload.toJSON;
+writeln("Payload : ", payload);
+		HTTP.StatusLine statusLine;
+		string response = sendRequest!string(acmeRes.newOrderUrl, payload, &statusLine);
 
-			/* If you pass a challenge, that's good for 300 days. The cert is only good for 90.
-			 * This means for a while you can re-issue without passing another challenge, so we
-			 * check to see if we need to validate again.
-			 *
-			 * Note that this introduces a race since it possible for the status to not be valid
-			 * by the time the certificate is requested. The assumption is that client retries
-			 * will deal with this.
-			 */
-			writeln(json.toPrettyString);
-			if ( ("status" in json) &&
-			     (json.type == JSONType.string) &&
-			     (json["status"].str != "valid") )
-			{
-				if ("challenges" in json) {
-					auto challenges = json["challenges"];
-					foreach ( i, challenge ; challenges.array)
+		if (statusLine.code / 100 != 2) {
+			writeln("Got http error: ", statusLine);
+			writeln("Got response:\n", response);
+			throw new AcmeException("Issue Request failed.");
+			//return cast(Certificate)null;
+		}
+		auto json = parseJSON(response);
+		writeln(json.toPrettyString);
+
+		/* If you pass a challenge, that's good for 300 days. The cert is only good for 90.
+		 * This means for a while you can re-issue without passing another challenge, so we
+		 * check to see if we need to validate again.
+		 *
+		 * Note that this introduces a race since it possible for the status to not be valid
+		 * by the time the certificate is requested. The assumption is that client retries
+		 * will deal with this.
+		 */
+		if ( ("status" in json) &&
+			 (json["status"].type == JSONType.string) &&
+			 (json["status"].str != "valid") )
+		{
+			if ("authorizations" in json) {
+				auto authorizations = json["authorizations"];
+				foreach ( i, authorizationUrl ; authorizations.array)
+				{
+					string authurl = authorizationUrl.str;
+					string response2 = sendRequest!string(authurl, "", &statusLine);
+					if (statusLine.code / 100 != 2) {
+						writeln("Got http error: ", statusLine);
+						writeln("Got response:\n", response2);
+						throw new AcmeException("Auth Request failed.");
+						//return cast(Certificate)null;
+					}
+					auto json2 = parseJSON(response2);
+					writeln(json2.toPrettyString);
+
+					if ("challenges" in json2)
 					{
-						if ( ("type" in challenge) && (challenge["type"].str == "http-01") )
+						auto domain = json2["identifier"]["value"].str;
+						auto challenges = json2["challenges"];
+						foreach (j, challenge; challenges.array)
 						{
-							string token = challenge["token"].str;
-							string url = "http://" ~ domain ~ "/.well-known/acme-challenge/" ~ token;
-							string keyAuthorization = token ~ "." ~ jwkThumbprint_.to!string;
-							callback(domain, url, keyAuthorization);
-							verifyChallengePassed(challenge, keyAuthorization);
-							break;
+							if ( ("type" in challenge) && (challenge["type"].str == "http-01") )
+							{
+								string token = challenge["token"].str;
+								string url = "http://" ~ domain ~ "/.well-known/acme-challenge/" ~ token;
+								string keyAuthorization = token ~ "." ~ jwkThumbprint_.to!string;
+								callback(domain, url, keyAuthorization);
+								verifyChallengePassed(authorizationUrl.str, challenge);
+								break;
+							}
 						}
 					}
 				}
-			} else {
-				writefln("Send payload: \n%s", jvPayload.toPrettyString);
-				writefln("Got failure response:\n%s", json.toPrettyString);
-				throw new AcmeException(json.toPrettyString);
 			}
+		} else {
+			writefln("Send payload: \n%s", jvPayload.toPrettyString);
+			writefln("Got failure response:\n%s", json.toPrettyString);
+			throw new AcmeException(json.toPrettyString);
 		}
 
 		// Issue the certificate
@@ -510,30 +563,40 @@ public:
 		string[string] rheaders;
 
 		JSONValue ncrs;
-		ncrs["resource"] = "new-cert";
 		ncrs["csr"] = csr;
 
 		import std.net.curl : HTTP;
-		HTTP.StatusLine statusLine;
-		auto der = sendRequest!(char[])(acmeRes.newCertUrl, ncrs.toJSON, &statusLine, &rheaders);
+		//~ HTTP.StatusLine statusLine;
+		auto response3 = sendRequest!(char[])(json["finalize"].str, ncrs.toJSON, &statusLine, &rheaders);
+		auto json3 = parseJSON(response);
+		writeln(json3.toPrettyString);
+
+
+		auto crtpem = sendRequest!(char[])(json3["certificate"].str, "", &statusLine, &rheaders);
 
 		// Create a container object
 		Certificate cert;
-		cert.fullchain = convertDERtoPEM(der) ~ cast(string)getIntermediateCertificate(rheaders["Link"]);
+		//~ cert.fullchain = convertDERtoPEM(der) ~ cast(string)getIntermediateCertificate(rheaders["Link"]);
+		cert.fullchain = crtpem.to!string;
 		cert.privkey = privateKey;
 		return cert;
 	}
 
-	// Throws if the challenge isn't accepted (or on timeout)
-	void verifyChallengePassed(JSONValue challenge, string keyAuthorization)
+	/** Acknowledge to CA server that a Auth is setup for check.
+	 *
+	 * Params:
+	 *  authorizationUrl - url to a auth job
+	 *  challenge - the current challange for reference
+	 *
+	 * Throws if the challenge isn't accepted (or on timeout)
+	 */
+	void verifyChallengePassed(string authorizationUrl, JSONValue challenge)
 	{
-		// Tell the CA we're prepared for the challenge.
-		string verificationUri = challenge["uri"].str;
+		string verificationUri = challenge["url"].str;
+
 		import std.net.curl : HTTP;
 		HTTP.StatusLine statusLine;
-		sendRequest!string(verificationUri, q"(  {
-														"resource": "challenge",
-														"keyAuthorization": ")" ~ keyAuthorization ~ "\"}" );
+		sendRequest!string(verificationUri, q"({})", &statusLine );
 
 		// Poll waiting for the CA to verify the challenge
 		int counter = 0;
@@ -545,7 +608,7 @@ public:
 			Thread.sleep(dur!"seconds"(1));
 
 			// get response from verification URL
-			char[] response = get(verificationUri);
+			string response = sendRequest!string(authorizationUrl, "", &statusLine);
 			auto json = parseJSON(response);
 			if (json["status"].str == "valid")
 			{
