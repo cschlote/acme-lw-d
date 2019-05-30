@@ -73,6 +73,17 @@ All methods report errors by throwing some exception, which will normally be an 
 
 #### ToDOs
 
+Mandatory:
+* Implement 7.4.    Applying for Certificate Issuance
+
+Optional:
+* Implement 7.3.4.  External Account Binding
+* Implement 7.3.5.  Account Key Rollover
+* Implement 7.3.6.  Account Deactivation
+* Implement 7.4.1.  Pre-authorization
+
+Nice to have:
 * Create a new SSL private/public key pair in program, if not existent and allowed by cmdline arg.
-  It avoids the use of the openssl command client (s.above)
+  It avoids the use of the openssl command client (see above). Should create only supported keys.
 * Split code into a library package and an optional CLI client, which uses the library package.
+
