@@ -31,9 +31,13 @@ dub add-local <somepath>/openssl
 ```
 
 To build and install run:
-
 ```
 dub build
+```
+
+To run the unittests:
+```
+dub test
 ```
 
 To run against the _Let's Encrypt_ staging environment generate your makefiles with this.

@@ -307,35 +307,27 @@ public:
 	this(string accountPrivateKey)
 	{
 		acmeRes.init();
+		SSL_OpenLibrary();
 
-		privateKey_ = EVP_PKEY_new();
-		// Create the private key and 'header suffix', used to sign LE certs.
-		{
-			BIO * bio = BIO_new_mem_buf(cast(void*)(accountPrivateKey.toStringz), -1);
-			RSA * rsa = PEM_read_bio_RSAPrivateKey(bio, null, null, null);
-			if (!rsa)
-			{
-				throw new AcmeException("Unable to read private key");
-			}
+		/* Create the private key */
+		RSA* rsa;
+		privateKey_ = SSL_x509_read_pkey_memory(accountPrivateKey, &rsa);
 
-			// rsa will get freed when privateKey_ is freed
-			if (!EVP_PKEY_assign_RSA(privateKey_, rsa))
-			{
-				throw new AcmeException("Unable to assign RSA to private key");
-			}
-
-			// https://tools.ietf.org/html/rfc7638
-			// JSON Web Key (JWK) Thumbprint
-			JSONValue jvJWK;
-			jvJWK["e"] = getBigNumberBytes(rsa.e).base64EncodeUrlSafe;
-			jvJWK["kty"] = "RSA";
-			jvJWK["n"] = getBigNumberBytes(rsa.n).base64EncodeUrlSafe;
-			jwkData_ = jvJWK;
-			jwkString_ = jvJWK.toJSON;
-			jwkSHAHash_ = sha256Encode( jwkString_ );
-			jwkThumbprint_ = jwkSHAHash_.base64EncodeUrlSafe.idup;
-		}
+		// https://tools.ietf.org/html/rfc7638
+		// JSON Web Key (JWK) Thumbprint
+		JSONValue jvJWK;
+		jvJWK["e"] = getBigNumberBytes(rsa.e).base64EncodeUrlSafe;
+		jvJWK["kty"] = "RSA";
+		jvJWK["n"] = getBigNumberBytes(rsa.n).base64EncodeUrlSafe;
+		jwkData_ = jvJWK;
+		jwkString_ = jvJWK.toJSON;
+		jwkSHAHash_ = sha256Encode( jwkString_ );
+		jwkThumbprint_ = jwkSHAHash_.base64EncodeUrlSafe.idup;
 	}
+	~this () {
+		SSL_CloseLibrary();
+	}
+
 	/** Call once after instantiating AcmeClient to setup parameters
 	 *
 	 * This function will fetch the directory from the ACME CA server and
@@ -489,7 +481,7 @@ public:
 		jvPayload["identifiers"]  = jvIdentifiersArray;
 
 		string payload = jvPayload.toJSON;
-writeln("Payload : ", payload);
+writeln("Payload : ", jvPayload.toPrettyString);
 		HTTP.StatusLine statusLine;
 		string response = sendRequest!string(acmeRes.newOrderUrl, payload, &statusLine);
 
@@ -523,6 +515,7 @@ writeln("Payload : ", payload);
 					if (statusLine.code / 100 != 2) {
 						writeln("Got http error: ", statusLine);
 						writeln("Got response:\n", response2);
+						stdout.flush;
 						throw new AcmeException("Auth Request failed.");
 						//return cast(Certificate)null;
 					}
@@ -535,7 +528,8 @@ writeln("Payload : ", payload);
 						auto challenges = json2["challenges"];
 						foreach (j, challenge; challenges.array)
 						{
-							if ( ("type" in challenge) && (challenge["type"].str == "http-01") )
+							if ( ("type" in challenge) &&
+							     (challenge["type"].str == "http-01") )
 							{
 								string token = challenge["token"].str;
 								string url = "http://" ~ domain ~ "/.well-known/acme-challenge/" ~ token;
@@ -555,30 +549,42 @@ writeln("Payload : ", payload);
 		}
 
 		// Issue the certificate
-		auto r = makeCertificateSigningRequest(domainNames);
-		string csr = r.csr;
-		string privateKey = r.pkey;
+		// auto r = makeCertificateSigningRequest(domainNames);
+		// string csr = r.csr;
+		// string privateKey = r.pkey;
+		const char[] privateKey = openSSL_CreatePrivateKey();
+		const char[] csr = openSSL_CreateCertificateSignRequest(privateKey, domainNames);
 
-		// Send CSRs and get the intermediate certs
+		writeln("CSR:\n", csr);
+
+		/* Send CSRs and get the intermediate certs */
 		string[string] rheaders;
 
 		JSONValue ncrs;
 		ncrs["csr"] = csr;
 
-		import std.net.curl : HTTP;
-		//~ HTTP.StatusLine statusLine;
-		auto response3 = sendRequest!(char[])(json["finalize"].str, ncrs.toJSON, &statusLine, &rheaders);
-		auto json3 = parseJSON(response);
-		writeln(json3.toPrettyString);
+		auto finalizeUrl = json["finalize"].str;
+		auto finalizePayLoad = ncrs.toJSON;
+		auto finalizeResponseStr = sendRequest!(char[])(finalizeUrl, finalizePayLoad, &statusLine, &rheaders);
+		if (statusLine.code / 100 != 2) {
+				writeln("Got http error: ", statusLine);
+				writeln("Got response:\n", finalizeResponseStr);
+				stdout.flush;
+				throw new AcmeException("Verification for passed challange failed.");
+		}
+		auto finalizeResponseJV = parseJSON(finalizeResponseStr);
+		writeln(finalizeResponseJV.toPrettyString);
 
+		/* Download the certificate (via POST-as-GET) */
+		auto certificateUrl = finalizeResponseJV["certificate"].str;
+		auto crtpem = sendRequest!(char[])(certificateUrl, "", &statusLine, &rheaders);
+		writeln(crtpem);
 
-		auto crtpem = sendRequest!(char[])(json3["certificate"].str, "", &statusLine, &rheaders);
-
-		// Create a container object
+		/* Create a container object */
 		Certificate cert;
 		//~ cert.fullchain = convertDERtoPEM(der) ~ cast(string)getIntermediateCertificate(rheaders["Link"]);
 		cert.fullchain = crtpem.to!string;
-		cert.privkey = privateKey;
+		cert.privkey = privateKey.idup;
 		return cert;
 	}
 
@@ -596,23 +602,40 @@ writeln("Payload : ", payload);
 
 		import std.net.curl : HTTP;
 		HTTP.StatusLine statusLine;
-		sendRequest!string(verificationUri, q"({})", &statusLine );
-
+		string response = sendRequest!string(verificationUri, q"({})", &statusLine );
+		if (statusLine.code / 100 != 2) {
+			writeln("Got http error: ", statusLine);
+			writeln("Got response:\n", response);
+			stdout.flush;
+			throw new AcmeException("Verification for passed challange failed.");
+			//return cast(Certificate)null;
+		}
 		// Poll waiting for the CA to verify the challenge
 		int counter = 0;
 		enum count = 10;
 		do
 		{
 			// sleep for a second
-			import core.thread;
-			Thread.sleep(dur!"seconds"(1));
+			import core.thread : Thread;
+			Thread.sleep(dur!"seconds"(2));
 
 			// get response from verification URL
-			string response = sendRequest!string(authorizationUrl, "", &statusLine);
-			auto json = parseJSON(response);
-			if (json["status"].str == "valid")
-			{
-				return;
+			response = sendRequest!string(authorizationUrl, "", &statusLine);
+			if (statusLine.code / 100 != 2) {
+				writeln("Got http error: ", statusLine);
+				writeln("Got response:\n", response);
+				stdout.flush;
+				throw new AcmeException("Verification for passed challange failed.");
+			}
+			else {
+				writeln(response);
+				auto json = parseJSON(response);
+				//writeln(json.toPrettyString);
+				if (json["status"].str == "valid")
+				{
+					writeln("challange valid. Continue.");
+					return;
+				}
 			}
 		} while (counter++ < count);
 

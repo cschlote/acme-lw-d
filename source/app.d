@@ -97,6 +97,15 @@ void handleChallenge(string domain, string url, string keyAuthorization)
 			~ "\t" ~ url ~ "\n\nrespond with this\n\n"
 			~ "\t" ~ keyAuthorization ~ "\n\n"
 			~ "Hit any key when done");
-	getchar();
+	import std.string; 
+	string filename = (url.split("/"))[$-1];
+	string cmd = "rsh raspi3 \"echo " ~ keyAuthorization ~ " > /var/www/html/.well-known/acme-challenge/" ~ filename ~ "\"";
+	writeln(cmd);
+	stdout.flush;
+
+	import std.process : executeShell;
+	executeShell(cmd);
+
+	//getchar();
 	writeln( "\n***\n" );
 }
