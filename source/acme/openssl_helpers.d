@@ -240,6 +240,8 @@ string convertDERtoPEM(const char[] der)
 	return toString(pemBio);
 }
 
+extern(C) ASN1_TIME * C_X509_get_notAfter(const char* certPtr, int certLen);
+
 /** Extract expiry date from a PEM encoded Zertificate
  *
  * Params:
@@ -248,6 +250,8 @@ string convertDERtoPEM(const char[] der)
  */
 T extractExpiryData(T, alias extractor)(const(char[]) cert)
 {
+	ASN1_TIME * t = C_X509_get_notAfter(cert.ptr, cert.length.to!int);
+/+
 	BIO* bio = BIO_new(BIO_s_mem());
 	if (BIO_write(bio, cast(const(void)*) cert.ptr, cert.length.to!int) <= 0)
 	{
@@ -256,7 +260,7 @@ T extractExpiryData(T, alias extractor)(const(char[]) cert)
 	X509* x509 = PEM_read_bio_X509(bio, null, null, null);
 
 	ASN1_TIME * t = X509_get_notAfter(x509);
-
++/
 	T rc = extractor(t);
 	return rc;
 }

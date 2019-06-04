@@ -219,3 +219,15 @@ X509_REQ* C_SSL_x509_make_csr(EVP_PKEY* pkey, char** domainNames, int domainName
 	return x509_req;
 }
 
+
+ASN1_TIME * C_X509_get_notAfter(char* certPtr, int certLen)
+{
+	BIO* bio = BIO_new(BIO_s_mem());
+	if (BIO_write(bio, certPtr, certLen) <= 0)
+		return NULL;
+	X509* x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+
+	ASN1_TIME * t = X509_get_notAfter(x509);
+	return t;
+}
+
