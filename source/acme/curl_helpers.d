@@ -13,6 +13,9 @@ import std.stdio;
 import std.string;
 import std.typecons;
 
+/** Current release number - FIXME Derive this from Git Tag. How in D? */
+enum acmeClientVersion = "0.0.1";
+
 /** Compose an error msg from custom and CURL error
  *
  * Params:
@@ -41,6 +44,7 @@ string getResponseHeader(string url, string headerKey)
 	string headerVal;
 
 	auto http = HTTP(url);
+	http.setUserAgent = "acme-lw-d/" ~ acmeClientVersion ~ " " ~ HTTP.defaultUserAgent();
 	http.method = HTTP.Method.head;
 	http.onReceiveHeader =
 		(in char[] key, in char[] value)
@@ -74,6 +78,7 @@ string doPost(string url, char[] postBody, HTTP.StatusLine* status,
 	string headerVal;
 
 	auto http = HTTP(url);
+	http.setUserAgent = "acme-lw-d/" ~ acmeClientVersion ~ " " ~ HTTP.defaultUserAgent();
 	http.verbose = true;
 	http.method = HTTP.Method.post;
 	http.addRequestHeader("Content-Type", "application/jose+json");
