@@ -184,7 +184,8 @@ struct Certificate
 			dt += dur!"seconds"(seconds + days * 3600 * 24);
 			return dt;
 		}
-	  	return extractExpiryData!(DateTime, extractor)(this.fullchain);
+		DateTime rc = extractExpiryData!(DateTime, extractor)(this.fullchain);
+		return rc;
 	}
 
 	/** Returns the 'Not After' result that openssl would display if
@@ -456,7 +457,7 @@ public:
 	 * Returns: A Certificate object or null.
 	 * Throws: an instance of AcmeException on fatal or unexpected errors.
 	 */
-	Certificate issueCertificate(string[] domainNames, Callback callback)
+	Certificate issueCertificate(string domainKeyData, string[] domainNames, Callback callback)
 	{
 		if (domainNames.empty)
 			throw new AcmeException("There must be at least one domain name in a certificate");
@@ -552,7 +553,7 @@ writeln("Payload : ", jvPayload.toPrettyString);
 		// auto r = makeCertificateSigningRequest(domainNames);
 		// string csr = r.csr;
 		// string privateKey = r.pkey;
-		const char[] privateKey = openSSL_CreatePrivateKey();
+		const char[] privateKey = domainKeyData /* openSSL_CreatePrivateKey() */;
 		const char[] csr = openSSL_CreateCertificateSignRequest(privateKey, domainNames);
 
 		writeln("CSR:\n", csr);
