@@ -1,4 +1,33 @@
 
+/* This is a stub C file to call OpenSSL
+ *
+ * This file is needed, because the OpenSSL bindings seem to
+ * broken. At least it wasn't possible to get it working, and
+ * a lot of time was wasted with the D binding.
+ *
+ * At the final end, this stub file was created in less than
+ * a quarter hour. It surely matches the installed version of
+ * OpenSSL on your system.
+ *
+ * To put it into other, which even follow the D philosophie:
+ * "There is no need to rewrite a well-written C, C++ or ObjC
+ *  library. Just call that code."
+ *
+ * Unfortunatelly OpenSSL is an example, where the Header are
+ * very sophisticated work using lots of C prepro macros to do
+ * fascinating things. Too bad, it's forming an own 'language'
+ * that way, is hard to parse and understand - even for human
+ * beings.
+ *
+ * For such situations it might be more useful to write the
+ * interface code in C using the headers as they are. Then
+ * call the functions of your C wrapper from D.
+ *
+ * This approach saves a lot of time, can use examples from the
+ * manual.
+ */
+
+/* C Runtime Includes - use C99 types */
 #include <assert.h>
 #include <string.h>
 
@@ -6,12 +35,16 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+/* Include the magic OpenSSL headerfiles as needed */
 #include <openssl/conf.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+
+/* Include our interface header to check against code below */
+#include "openssl_glues.h"
 
 /* Initialize SSL library */
 bool C_SSL_OpenLibrary(void)
@@ -130,8 +163,6 @@ X509* C_SSL_x509_make_cert(EVP_PKEY* pkey, char* subject)
 	return x509;
 }
 
-
-static
 bool C_add_req_ext(STACK_OF(X509_EXTENSION) *sk, int nid, char* value)
 {
 	X509_EXTENSION *ex;

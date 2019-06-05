@@ -6,6 +6,11 @@
  * 'openssl'.
  *
  * See: https://github.com/D-Programming-Deimos/openssl
+ *
+ * Note:
+ *   The D binding seem to be outdated or otherwise broken. At least some
+ *   code only works in C. That's why a C stub was added. However, the code
+ *   is still available in D below in hope that things can be fixed later.
  */
 module acme.openssl_helpers;
 

@@ -11,5 +11,5 @@
 		"openssl": "~>2.0.0+1.1.0h"
 	},
 	"lflags": [ "-lcurl", "openssl_glues.o" ],
-	"preBuildCommands": [ "gcc source/acme/openssl_glues.c -c -g"]
+	"preBuildCommands": [ "make -C source/acme/ all"]
 }
