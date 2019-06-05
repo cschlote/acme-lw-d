@@ -1,8 +1,12 @@
 
 module acme;
 
-import acme.acme_client;
+public:
+
+import acme.client;
 import acme.exception;
+
+protected:
 
 import acme.curl_helpers;
 import acme.openssl_helpers;

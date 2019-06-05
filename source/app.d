@@ -10,8 +10,6 @@ import std.json;
 import std.stdio;
 
 import acme;
-import acme.acme_client;
-import acme.exception;
 
 /* Decoded Commandline Options */
 string argPrivateKeyFile;    /// The path to the private key for the ACME account

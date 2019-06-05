@@ -4,7 +4,7 @@
  * This software provides a simple and minimalistic ACME client. It
  * provides no fancy options, but sticks with the most common settings.
  */
-module acme.acme_client;
+module acme.client;
 
 import std.conv;
 import std.datetime;
@@ -21,9 +21,6 @@ import deimos.openssl.rsa;
 import deimos.openssl.x509v3;
 
 import acme;
-import acme.exception;
-import acme.curl_helpers;
-import acme.openssl_helpers;
 
 /* ------------------------------------------------------------------------ */
 
@@ -437,7 +434,7 @@ public:
 	*   of the domain name.
 	*/
 	alias Callback =
-		void function (
+		int function (
 			string domainName,
 			string url,
 			string keyAuthorization);
@@ -535,7 +532,9 @@ writeln("Payload : ", jvPayload.toPrettyString);
 								string token = challenge["token"].str;
 								string url = "http://" ~ domain ~ "/.well-known/acme-challenge/" ~ token;
 								string keyAuthorization = token ~ "." ~ jwkThumbprint_.to!string;
-								callback(domain, url, keyAuthorization);
+								auto rc = callback(domain, url, keyAuthorization);
+								if (rc != 0)
+									throw new AcmeException("challange setup script failed.");
 								verifyChallengePassed(authorizationUrl.str, challenge);
 								break;
 							}
