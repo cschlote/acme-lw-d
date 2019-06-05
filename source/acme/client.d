@@ -143,6 +143,9 @@ unittest
 
 /* ------------------------------------------------------------------------ */
 
+// Missing in D binding?
+extern(C) int ASN1_TIME_diff(int *pday, int *psec, const ASN1_TIME *from, const ASN1_TIME *to);
+
 /** An openssl certificate */
 struct Certificate
 {

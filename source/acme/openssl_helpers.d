@@ -256,7 +256,7 @@ extern(C) ASN1_TIME * C_X509_get_notAfter(const char* certPtr, int certLen);
 T extractExpiryData(T, alias extractor)(const(char[]) cert)
 {
 	ASN1_TIME * t = C_X509_get_notAfter(cert.ptr, cert.length.to!int);
-/+
+/+ Code below works in C, but not in D (yet).
 	BIO* bio = BIO_new(BIO_s_mem());
 	if (BIO_write(bio, cast(const(void)*) cert.ptr, cert.length.to!int) <= 0)
 	{
@@ -396,7 +396,7 @@ char[] signDataWithSHA256(char[] s, EVP_PKEY* privateKey)
 {
 	size_t signatureLength = 0;
 
-	EVP_MD_CTX* context = EVP_MD_CTX_create();
+	EVP_MD_CTX* context = EVP_MD_CTX_new();
 	const EVP_MD * sha256 = EVP_get_digestbyname("SHA256");
 	if ( !sha256 ||
 		EVP_DigestInit_ex(context, sha256, null) != 1 ||
@@ -714,11 +714,11 @@ bool_t add_req_ext(STACK_OF(X509_EXTENSION) *sk, int nid, cstring_p value)
 ++/
 
 /** Get a CSR as PEM string */
-char[] SSL_x509_get_PEM(X509_REQ* csr)
+char[] SSL_x509_get_PEM(X509_REQ* x509_req)
 {
 	BUF_MEM* mem;
 	BIO* bio = BIO_new(BIO_s_mem());
-	PEM_write_bio_X509_REQ(bio, csr);
+	PEM_write_bio_X509_REQ(bio, x509_req);
 	BIO_get_mem_ptr(bio, &mem);
 	if (null == mem)  {
 		return null;
@@ -726,6 +726,18 @@ char[] SSL_x509_get_PEM(X509_REQ* csr)
 	//cstring_p rs = strndup(mem->data, mem->length);
 	char[] rs = mem.data[0..mem.length].dup;
 	BIO_free(bio);
+	return rs;
+}
+
+/** Get a CSR as base64url-encoded DER string */
+char[] SSL_x509_get_DER_as_B64URL(X509_REQ* x509_req)
+{
+	BIO* reqBio = BIO_new(BIO_s_mem());
+	if (i2d_X509_REQ_bio(reqBio, x509_req) < 0)	{
+		throw new AcmeException("Can't convert CSR to DER.");
+	}
+	char[] rs = cast(char[])base64EncodeUrlSafe(toVector(reqBio)).to!string;
+	BIO_free(reqBio);
 	return rs;
 }
 
@@ -933,14 +945,11 @@ char[] openSSL_CreateCertificateSignRequest(const char[] prkey, string[] domainN
 	X509_REQ* x509_req = SSL_x509_make_csr(pkey, domainNames);
 	assert (x509_req !is null, "Returned empty cert req.");
 
-	/* Convert to PEM string */
+//	/* Convert to PEM string */
 //	auto rs = SSL_x509_get_PEM(x509_req);
-	BIO* reqBio = BIO_new(BIO_s_mem());
-	if (i2d_X509_REQ_bio(reqBio, x509_req) < 0)	{
-		throw new AcmeException("Can't convert CSR to DER.");
-	}
-	char[] rs = cast(char[])base64EncodeUrlSafe(toVector(reqBio)).to!string;
-	BIO_free(reqBio);
+
+	/* Convert to DER data */
+	auto rs = SSL_x509_get_DER_as_B64URL(x509_req);
 	EVP_PKEY_free(pkey);
 	return rs;
 }

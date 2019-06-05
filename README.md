@@ -22,13 +22,6 @@ On Red Hat based systems this will do it.
 yum install dub openssl-devel curl-devel
 ```
 
-Workaround for problems with dub:openssl package
-```
-cd <somepath>
-git clone https://github.com/cschlote/openssl.git
-cd openssl && git checkout fixup_EVP_MD_CTX_new
-dub add-local <somepath>/openssl
-```
 
 To build and install run:
 ```

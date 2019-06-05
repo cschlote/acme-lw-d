@@ -259,6 +259,7 @@ ASN1_TIME * C_X509_get_notAfter(char* certPtr, int certLen)
 	X509* x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
 
 	ASN1_TIME * t = X509_get_notAfter(x509);
+	BIO_free(bio);
 	return t;
 }
 
