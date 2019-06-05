@@ -171,7 +171,6 @@ struct Certificate
 		{
 			// See this link for issues in converting from ASN1_TIME to epoch time.
 			// https://stackoverflow.com/questions/10975542/asn1-time-to-time-t-conversion
-
 			int days, seconds;
 			if (!ASN1_TIME_diff(&days, &seconds, null, t))
 			{
@@ -585,7 +584,6 @@ writeln("Payload : ", jvPayload.toPrettyString);
 
 		/* Create a container object */
 		Certificate cert;
-		//~ cert.fullchain = convertDERtoPEM(der) ~ cast(string)getIntermediateCertificate(rheaders["Link"]);
 		cert.fullchain = crtpem.to!string;
 		cert.privkey = privateKey.idup;
 		return cert;
@@ -644,35 +642,4 @@ writeln("Payload : ", jvPayload.toPrettyString);
 
 		throw new AcmeException("Failure / timeout verifying challenge passed");
 	}
-}
-
-/* ------------------------------------------------------------------------ */
-/* --- Helper Functions --------------------------------------------------- */
-/* ------------------------------------------------------------------------ */
-
-/** Get the issuer certificate from a 'Link' response header
- *
- * Param:
- *  linkHeader - ResponseHeader Line of the form
- *               Link: <https://acme-v01.api.letsencrypt.org/acme/issuer-cert>;rel="up"
- * Returns:
- *   Pem-encoded issuer certificate string
- */
-string getIntermediateCertificate(string linkHeader)
-{
-	/* Extract the URL from the Header */
-	import std.regex;
-	// Link: <https://acme-v01.api.letsencrypt.org/acme/issuer-cert>;rel="up"
-	auto r = regex("^<(.*)>;rel=\"up\"$");
-	auto match = matchFirst(linkHeader, r);
-	if (match.empty)
-	{
-		throw new AcmeException("Unable to parse 'Link' header with value " ~ linkHeader);
-	}
-	char[] url = cast(char[])match[1];
-
-	/* Download the issuer certificate */
-	auto reps = get(url);
-	auto rstr = convertDERtoPEM( reps );
-	return rstr;
 }
