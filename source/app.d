@@ -86,7 +86,7 @@ int handleChallenge(string domain, string url, string keyAuthorization)
 int main(string[] args)
 {
 	version (STAGING)
-		writeln("THIS IS ALPHA SOFTWARE. Running against staging environment!");
+		writeln("THIS IS BETA SOFTWARE. Running against staging environment!");
 
 	if (args.length <= 1) args ~= "-h";
 	auto helpInformation = getopt(
@@ -148,8 +148,10 @@ int main(string[] args)
 	int exitStatus = -1;
 	try
 	{
+		curlBeVerbose = argVerbose;
+
 		/* --- Create the ACME client object ----------------------------- */
-		AcmeClient acmeClient = new AcmeClient(privateKeyData);
+		AcmeClient acmeClient = new AcmeClient(privateKeyData, argVerbose);
 
 		acmeClient.setupClient();
 		if (argVerbose) {

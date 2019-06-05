@@ -13,8 +13,20 @@ import std.stdio;
 import std.string;
 import std.typecons;
 
+private:
+
+void myLog(alias fun = writeln, T...)(T args)
+{
+	if (curlBeVerbose)
+		fun(args);
+}
+
 /** Current release number - FIXME Derive this from Git Tag. How in D? */
-enum acmeClientVersion = "0.0.1";
+
+public:
+	enum acmeClientVersion = "0.0.1";
+	public bool curlBeVerbose = false;
+
 
 /** Compose an error msg from custom and CURL error
  *
@@ -49,7 +61,7 @@ string getResponseHeader(string url, string headerKey)
 	http.onReceiveHeader =
 		(in char[] key, in char[] value)
 			{
-				writeln( "Response Header : ", key, " = ", value);
+				myLog( "Response Header : ", key, " = ", value);
 				if (key.toLower == headerKey.toLower)
 					headerVal = value.idup;
 			};
@@ -79,7 +91,7 @@ string doPost(string url, char[] postBody, HTTP.StatusLine* status,
 
 	auto http = HTTP(url);
 	http.setUserAgent = "acme-lw-d/" ~ acmeClientVersion ~ " " ~ HTTP.defaultUserAgent();
-	http.verbose = true;
+	http.verbose = curlBeVerbose;
 	http.method = HTTP.Method.post;
 	http.addRequestHeader("Content-Type", "application/jose+json");
 
@@ -88,7 +100,7 @@ string doPost(string url, char[] postBody, HTTP.StatusLine* status,
 			{
 				if (key.toLower == "replay-nonce") {
 					*nonce = value.idup;
-					writeln("Setting new NOnce: ", *nonce);
+					myLog("Setting new NOnce: ", *nonce);
 				}
 			};
 	http.onReceive =

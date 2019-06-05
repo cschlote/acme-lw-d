@@ -120,7 +120,7 @@ unittest
 			test.directoryUrl = url;
 			test.getResources();
 		}
-		writeln("Received directory data :\n", test.directoryJson.toPrettyString);
+		myLog("Received directory data :\n", test.directoryJson.toPrettyString);
 		assert( test.directoryUrl !is null, "Shouldn't be null");
 
 		assert( test.keyChangeUrl !is null, "Shouldn't be null");
@@ -228,6 +228,14 @@ private:
 	ubyte[]     jwkSHAHash_;     /// The SHA256 hash value of jwkString_
 	string      jwkThumbprint_;  /// Base64 url-safe string of jwkSHAHash_
 
+	bool		beVerbose_;      /// Be verbose
+
+	void myLog(alias fun = writeln, T...)(T args)
+	{
+		if (beVerbose_)
+			fun(args);
+	}
+
 	/** Create and send a JWS request with payload to a ACME enabled CA server
 	 *
 	 * Still unfinished template to build the JWS object. This code must be
@@ -248,7 +256,7 @@ private:
 	{
 		string nonce = this.acmeRes.nonce;
 		assert(nonce !is null && !nonce.empty, "Invalid Nonce value.");
-		writeln("Using NOnce: ", nonce);
+		myLog("Using NOnce: ", nonce);
 
 		/* Create protection data */
 		JSONValue jvReqHeader;
@@ -266,29 +274,29 @@ private:
 		char[] payld = base64EncodeUrlSafe(payload);
 
 		auto signData = protectd ~ "." ~ payld;
-		//writefln("Data to sign: %s", signData);
+		myLog!writefln("Data to sign: %s", signData);
 		char[] signature = signDataWithSHA256(signData, privateKey_);
-		//writefln("Signature: %s", signature);
+		myLog!writefln("Signature: %s", signature);
 
 		JSONValue jvBody;
 		jvBody["protected"] = protectd;
 		jvBody["payload"] = payld;
 		jvBody["signature"] = signature;
 		char[] body_ = jvBody.toJSON.dup;
-		//writefln("Body: %s", jvBody.toPrettyString);
+		myLog!writefln("Body: %s", jvBody.toPrettyString);
 
 		auto response = doPost(url, body_, status, rheaders, &(acmeRes.nonce));
 		if (rheaders) {
-			writeln( "ResponseHeaders: ");
+			myLog( "ResponseHeaders: ");
 			foreach( v ; (*rheaders).byKey) {
-				writeln("  ", v, " : ", (*rheaders)[v]);
+				myLog("  ", v, " : ", (*rheaders)[v]);
 				//~ if (v.toLower == "replay-nonce") {
 					//~ acmeRes.nonce = (*rheaders)[v];
-					//~ writeln("Setting new NOnce: ", acmeRes.nonce);
+					//~ myLog("Setting new NOnce: ", acmeRes.nonce);
 				//~ }
 			}
 		}
-		//writeln( "Response: ", response);
+		myLog( "Response: ", response);
 
 		return to!T(response);
 	}
@@ -304,8 +312,10 @@ public:
 	 *     		key used to sign requests to the acme CA, in pem format.
 	 *  Throws: an instance of AcmeException on fatal or unexpected errors.
 	 */
-	this(string accountPrivateKey)
+	this(string accountPrivateKey, bool beVerbose = false)
 	{
+		beVerbose_ = beVerbose;
+
 		acmeRes.init();
 		SSL_OpenLibrary();
 
@@ -414,8 +424,8 @@ public:
 			rc = true;
 		}
 		else {
-			writeln("Got http error: ", statusLine);
-			writeln("Got response:\n", response);
+			stderr.writeln("Got http error: ", statusLine);
+			stderr.writeln("Got response:\n", response);
 			// FIXME handle different error types...
 		}
 		return rc;
@@ -481,18 +491,17 @@ public:
 		jvPayload["identifiers"]  = jvIdentifiersArray;
 
 		string payload = jvPayload.toJSON;
-writeln("Payload : ", jvPayload.toPrettyString);
+		myLog("Payload : ", jvPayload.toPrettyString);
 		HTTP.StatusLine statusLine;
 		string response = sendRequest!string(acmeRes.newOrderUrl, payload, &statusLine);
 
 		if (statusLine.code / 100 != 2) {
-			writeln("Got http error: ", statusLine);
-			writeln("Got response:\n", response);
+			stderr.writeln("Got http error: ", statusLine);
+			stderr.writeln("Got response:\n", response);
 			throw new AcmeException("Issue Request failed.");
-			//return cast(Certificate)null;
 		}
 		auto json = parseJSON(response);
-		writeln(json.toPrettyString);
+		myLog(json.toPrettyString);
 
 		/* If you pass a challenge, that's good for 300 days. The cert is only good for 90.
 		 * This means for a while you can re-issue without passing another challenge, so we
@@ -513,14 +522,14 @@ writeln("Payload : ", jvPayload.toPrettyString);
 					string authurl = authorizationUrl.str;
 					string response2 = sendRequest!string(authurl, "", &statusLine);
 					if (statusLine.code / 100 != 2) {
-						writeln("Got http error: ", statusLine);
-						writeln("Got response:\n", response2);
+						stderr.writeln("Got http error: ", statusLine);
+						stderr.writeln("Got response:\n", response2);
 						stdout.flush;
 						throw new AcmeException("Auth Request failed.");
 						//return cast(Certificate)null;
 					}
 					auto json2 = parseJSON(response2);
-					writeln(json2.toPrettyString);
+					myLog(json2.toPrettyString);
 
 					if ("challenges" in json2)
 					{
@@ -557,7 +566,7 @@ writeln("Payload : ", jvPayload.toPrettyString);
 		const char[] privateKey = domainKeyData /* openSSL_CreatePrivateKey() */;
 		const char[] csr = openSSL_CreateCertificateSignRequest(privateKey, domainNames);
 
-		writeln("CSR:\n", csr);
+		myLog("CSR:\n", csr);
 
 		/* Send CSRs and get the intermediate certs */
 		string[string] rheaders;
@@ -569,18 +578,18 @@ writeln("Payload : ", jvPayload.toPrettyString);
 		auto finalizePayLoad = ncrs.toJSON;
 		auto finalizeResponseStr = sendRequest!(char[])(finalizeUrl, finalizePayLoad, &statusLine, &rheaders);
 		if (statusLine.code / 100 != 2) {
-				writeln("Got http error: ", statusLine);
-				writeln("Got response:\n", finalizeResponseStr);
+				stderr.writeln("Got http error: ", statusLine);
+				stderr.writeln("Got response:\n", finalizeResponseStr);
 				stdout.flush;
 				throw new AcmeException("Verification for passed challange failed.");
 		}
 		auto finalizeResponseJV = parseJSON(finalizeResponseStr);
-		writeln(finalizeResponseJV.toPrettyString);
+		myLog(finalizeResponseJV.toPrettyString);
 
 		/* Download the certificate (via POST-as-GET) */
 		auto certificateUrl = finalizeResponseJV["certificate"].str;
 		auto crtpem = sendRequest!(char[])(certificateUrl, "", &statusLine, &rheaders);
-		writeln(crtpem);
+		myLog(crtpem);
 
 		/* Create a container object */
 		Certificate cert;
@@ -605,8 +614,8 @@ writeln("Payload : ", jvPayload.toPrettyString);
 		HTTP.StatusLine statusLine;
 		string response = sendRequest!string(verificationUri, q"({})", &statusLine );
 		if (statusLine.code / 100 != 2) {
-			writeln("Got http error: ", statusLine);
-			writeln("Got response:\n", response);
+			stderr.writeln("Got http error: ", statusLine);
+			stderr.writeln("Got response:\n", response);
 			stdout.flush;
 			throw new AcmeException("Verification for passed challange failed.");
 			//return cast(Certificate)null;
@@ -623,18 +632,18 @@ writeln("Payload : ", jvPayload.toPrettyString);
 			// get response from verification URL
 			response = sendRequest!string(authorizationUrl, "", &statusLine);
 			if (statusLine.code / 100 != 2) {
-				writeln("Got http error: ", statusLine);
-				writeln("Got response:\n", response);
+				stderr.writeln("Got http error: ", statusLine);
+				stderr.writeln("Got response:\n", response);
 				stdout.flush;
 				throw new AcmeException("Verification for passed challange failed.");
 			}
 			else {
-				writeln(response);
+				myLog(response);
 				auto json = parseJSON(response);
-				//writeln(json.toPrettyString);
+				myLog(json.toPrettyString);
 				if (json["status"].str == "valid")
 				{
-					writeln("challange valid. Continue.");
+					myLog("Challange valid. Continue.");
 					return;
 				}
 			}

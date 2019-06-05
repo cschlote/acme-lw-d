@@ -948,7 +948,7 @@ char[] openSSL_CreateCertificateSignRequest(const char[] prkey, string[] domainN
 //	/* Convert to PEM string */
 //	auto rs = SSL_x509_get_PEM(x509_req);
 
-	/* Convert to DER data */
+	/* Convert to DER with base64url-encoded data */
 	auto rs = SSL_x509_get_DER_as_B64URL(x509_req);
 	EVP_PKEY_free(pkey);
 	return rs;
