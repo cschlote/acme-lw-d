@@ -9,11 +9,13 @@ DISASM = $(OBJS:%.o=%.asm)
 %.asm : %.o
 	$(CROSSCOMPILE)objdump -dSth $< | ddemangle > $@
 
-%.o : %.d
+%.o : %.d ; Makefile
 	$(CROSSCOMPILE)$(DC) -c $(DFLAGS) $< -of $@
 
-%.o : %.c
+%.o : %.c ; Makefile %.h
+	pwd
 	$(CROSSCOMPILE)$(CC) -c $(CFLAGS) $< -o $@
+	ls
 
 openssl_glues.di : openssl_glues.h Makefile
 	@echo "Create DI file : openssl_glues.di"

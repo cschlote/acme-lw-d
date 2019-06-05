@@ -31,6 +31,12 @@ To run the unittests:
 dub test
 ```
 
+Run it as a dub package:
+```
+dub fetch acme-lw-d
+dub run acme-lw-d -- -h
+```
+
 #### Let's Encrypt Credentials
 
 To use any _Let's Encrypt_ client you need to sign requests with your _Let's Encrypt_'s account's private key.
