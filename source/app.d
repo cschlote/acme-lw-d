@@ -1,8 +1,15 @@
-
-/**
- * This is commandline tool of the ACME v2 client
+/** This is commandline tool of the ACME v2 client
+ *
+ * This tool implements a ACME V2 compatible client, which allows to setup
+ * an account on the LetsEncrypt ACME server, to open an order for a new
+ * certificate, to setup the challanges and finally downloads the certificate.
+ *
+ * See:
+ *   RFC8555 - Describes the ACME Protokol, version 2
  */
 module app;
+
+/* Imports */
 
 import std.file;
 import std.getopt;
@@ -12,9 +19,11 @@ import std.stdio;
 import acme;
 
 /* Decoded Commandline Options */
+
 string argPrivateKeyFile;    /// The path to the private key for the ACME account
 string argDomainKeyFile;     /// The path to the private key for the certs and csr
 string argOutputFile;        /// The output path for the downloaded cert.
+string argChallangeScript;   /// Name of challange script to call
 string[] argDomainNames;     /// The list of domain names
 string[] argContacts;        /// The list of account names
 /// Supported key sizes
@@ -22,16 +31,64 @@ enum argRSABitsEnum {
 	rsa2048 = 2048,
 	rsa4096 = 4096
 };
-argRSABitsEnum argRSABits;
+argRSABitsEnum argRSABits;   /// Select the number of bit by the enum name
 bool argVerbose;             /// Verbosity mode?
+bool argUseStaging;
 bool argTosAgree;            /// Agree to Terms of Service
 
-/** Programm Main */
+/* Help texts */
+enum helpLongText = q"(
+Example:
+  $ ./acme-lw-d -k key.pem -p domain.key -o domain.pem \
+       -d your-domain.net -d www.your-domain.net \
+       -c "mailto:webmaster@domain.net" \
+       -w "./examples/setupChallange.sh" \
+       -y -v -b {rsa2048|rs4096}
+
+  RS keys will be created on first run and stored on disk. They are reused
+  when existing.
+
+  The setup-challange script is called with the challange type, the filename
+   and token. Right new, only http challange is supported (FIXME).
+)";
+
+
+/** Call-out to setup the ACME
+ *
+ * Params:
+ *   domain - domain identifier
+ *   url - the url to prepare
+ *   keyAuthorization - the token to return
+ * Returns:
+ *   A shell return value (0 means success)
+ */
+private
+int handleChallenge(string domain, string url, string keyAuthorization)
+{
+	import std.format : format;
+	string cmd = format("%s %s %s %s", argChallangeScript, domain, url, keyAuthorization);
+	writefln("Running command '%s'", cmd); stdout.flush;
+
+	import std.process : executeShell;
+	auto rc = executeShell(cmd);
+	writeln(rc.output);
+	writefln("Command returned status %d (sucess=%s)", rc.status, rc.status == 0 ? true : false);
+	return rc.status;
+}
+
+/** Programm Main
+ *
+ * Param:
+ *   args - array of command line args
+ * Return:
+ *   shell error code
+ */
 int main(string[] args)
 {
 	version (STAGING)
-		writeln("Running against staging environment.");
+		writeln("THIS IS ALPHA SOFTWARE. Running against staging environment!");
 
+	if (args.length <= 1) args ~= "-h";
 	auto helpInformation = getopt(
 		args,
 		std.getopt.config.required,
@@ -44,17 +101,21 @@ int main(string[] args)
 		"contact|c", "A contact for the account. Can be given multiple times.", &argContacts,
 		std.getopt.config.required,
 		"output|o",  "The output file for the PEM encoded X509 cert", &argOutputFile,
+		std.getopt.config.required,
+		"setupchallange|w",  "Programm to call to setup a challange", &argChallangeScript,
 		"bits|b",    "RSA bits to use for keys. Used on new key creation", &argRSABits,
-		"agree|y",   "Agree to TermsOfService", &argTosAgree,
+		"agree|y",   "Agree to TermsOfService, when creating the account.", &argTosAgree,
+		"staging|s", "Use the staging server for initial testing or developing", &argUseStaging,
 		"verbose|v", "Verbose output", &argVerbose);
 	if (helpInformation.helpWanted)
 	{
 		defaultGetoptPrinter("Usage: acme_client <options>",
 			helpInformation.options);
+		writeln(helpLongText);
 		return 1;
 	}
 	assert(argPrivateKeyFile !is null, "The path should be set?!");
-	//assert(argDomainKeyFile !is null, "The path should be set?!");
+	assert(argDomainKeyFile !is null, "The path should be set?!");
 	assert(argDomainNames.length >= 1, "No domain names found?!");
 	assert(argContacts.length >= 1, "No contacts found?!");
 
@@ -124,23 +185,3 @@ int main(string[] args)
 	return exitStatus;
 }
 
-/* Expected response callback */
-private
-void handleChallenge(string domain, string url, string keyAuthorization)
-{
-	writeln("To verify ownership of " ~ domain ~ " make\n\n"
-			~ "\t" ~ url ~ "\n\nrespond with this\n\n"
-			~ "\t" ~ keyAuthorization ~ "\n\n"
-			~ "Hit any key when done");
-	import std.string;
-	string filename = (url.split("/"))[$-1];
-	string cmd = "rsh raspi3 \"echo " ~ keyAuthorization ~ " > /var/www/html/.well-known/acme-challenge/" ~ filename ~ "\"";
-	writeln(cmd);
-	stdout.flush;
-
-	import std.process : executeShell;
-	executeShell(cmd);
-
-	//getchar();
-	writeln( "\n***\n" );
-}
