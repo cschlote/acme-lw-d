@@ -1,27 +1,25 @@
+
 ## Lightweight ACME Client written in the D computer language
 
-This project is yet another [_Let's Encrypt_](https://letsencrypt.org) client. It has the following properties.
+This project is yet another [_Let's Encrypt_](https://letsencrypt.org) client.
+It has the following properties.
 
 * It is written in the D computer language.
-* WIP: The main artifact is a D static library.
 * A commandline tool provides all operations of RFC855 as best as possible
-* Tries to be a good example of D programming. It hast ddoc and unittest
-  support.
+* It hast ddox and unittest support.
 
 #### Building and Installing
 
-Building requires dub, openssl and curl. On Debian based systems this will install them.
-
+Building requires dub, openssl and curl. On Debian based systems you can
+install them with:
 ```
 apt-get install dub libssl-dev libcurl4-gnutls-dev
 ```
 
-On Red Hat based systems this will do it.
-
+On Red Hat based systems use this:
 ```
 yum install dub openssl-devel curl-devel
 ```
-
 
 To build and install run:
 ```
@@ -31,13 +29,6 @@ dub build
 To run the unittests:
 ```
 dub test
-```
-
-To run against the _Let's Encrypt_ staging environment generate your makefiles with this.
-(NOT WORKING YET)
-
-```
-dub build -c acme-staging
 ```
 
 #### Let's Encrypt Credentials
@@ -52,26 +43,56 @@ Create a SSL key pair with:
 openssl genrsa -out key.pem 2048
 ```
 
+Otherwise the client will create a new key, if the given file doesn't exist.
+
 #### Command Line Client
 
-The command line client is run as follows.
+The command line client is run as follows:
 
 ```
-./acme-lw-d -k key.pem -d honk.com -d bubu.com -y -c "mailto:santaclaus@northpol.org"
-./acme-lw-d -h
+$ ./acme-lw-d
+THIS IS ALPHA SOFTWARE. Running against staging environment!
+Usage: acme_client <options>
+-k            --key Required: The path to private key of ACME account. (PEM file)
+-p      --domainkey Required: The path to your private key for X509 certificates (PEM file)
+-d         --domain Required: A domain name. Can be given multiple times. First entry will be subject name.
+-c        --contact Required: A contact for the account. Can be given multiple times.
+-o         --output Required: The output file for the PEM encoded X509 cert
+-w --setupchallange Required: Programm to call to setup a challange
+-b           --bits           RSA bits to use for keys. Used on new key creation
+-y          --agree           Agree to TermsOfService, when creating the account.
+-s        --staging           Use the staging server for initial testing or developing
+-v        --verbose           Verbose output
+-h           --help           This help information.
+
+Example:
+  $ ./acme-lw-d -k key.pem -p domain.key -o domain.pem \
+       -d your-domain.net -d www.your-domain.net \
+       -c "mailto:webmaster@domain.net" \
+       -w "./examples/setupChallange.sh" \
+       -y -v -b {rsa2048|rs4096}
+
+  RS keys will be created on first run and stored on disk. They are reused
+  when existing.
+
+  The setup-challange script is called with the challange type, the filename
+   and token. Right new, only http challange is supported (FIXME).
 ```
 
 #### Library API
 
-The API of the library is documented in its [source file](source/acme/acme-lw.d). The command line client
-[source](source/app.d) provides an example of how it's used.
+The API of the library is documented with ddox:
+```
+dub run -b ddox
+```
 
 All methods report errors by throwing some exception, which will normally be an instance of acme.AcmeException.
 
 #### ToDOs
 
 Mandatory:
-* Implement 7.4.    Applying for Certificate Issuance
+* Cleanup output with respect to -v option
+* Implement account deactivation
 
 Optional:
 * Implement 7.3.4.  External Account Binding
