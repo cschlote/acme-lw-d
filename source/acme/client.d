@@ -242,12 +242,12 @@ private:
 	 * refactored later.
 	 *
 	 * Params:
-	 *  T - return type
-	 *  useKID - useKID
-	 *  url - Url to post to
-	 *  payload - data to send
-	 *  status - pointer to StatusLine
-	 *  rheaders - Pointer to ResponseHeaders received from server, or null
+	 *  T = return type
+	 *  useKID = useKID
+	 *  url = Url to post to
+	 *  payload = data to send
+	 *  status = pointer to StatusLine
+	 *  rheaders = Pointer to ResponseHeaders received from server, or null
 	 *
 	 * See: https://tools.ietf.org/html/rfc7515
 	 */
@@ -308,7 +308,7 @@ public:
 	/** Instanciate a AcmeClient using a private key for signing
 	 *
 	 *  Param:
-	 *     accountPrivateKey - The signingKey is the Acme account private
+	 *     accountPrivateKey = The signingKey is the Acme account private
 	 *     		key used to sign requests to the acme CA, in pem format.
 	 *  Throws: an instance of AcmeException on fatal or unexpected errors.
 	 */
@@ -383,11 +383,11 @@ public:
 	 * JWS and to create the CSR.
 	 *
 	 * Params:
-	 *   contacts - list of contacts for the account
-	 *   tosAgreed - set this to true, when user ack on commandline. otherwise
+	 *   contacts = list of contacts for the account
+	 *   tosAgreed = set this to true, when user ack on commandline. otherwise
 	 *               the default is false, and the CA server might refuse to
 	 *               operate in this case.
-	 *   onlyReturnExisting - do not create a new account, but only reuse an
+	 *   onlyReturnExisting = do not create a new account, but only reuse an
 	 *                 existing one. Defaults to false. When set to true, an
 	 *                 account is never created, but only existing accounts are
 	 *                 returned.
@@ -460,8 +460,9 @@ public:
 	 * to be issued.
 	 *
 	 * Params:
-	 *   domainNames - list of domains
-	 *   callback - pointer to function to setup expected response
+	 *   domainKeyData = the private PEM-encoded key
+	 *   domainNames = list of domains
+	 *   callback = pointer to function to setup expected response
 	 *              on given URL
 	 * Returns: A Certificate object or null.
 	 * Throws: an instance of AcmeException on fatal or unexpected errors.
@@ -601,8 +602,8 @@ public:
 	/** Acknowledge to CA server that a Auth is setup for check.
 	 *
 	 * Params:
-	 *  authorizationUrl - url to a auth job
-	 *  challenge - the current challange for reference
+	 *  authorizationUrl = url to a auth job
+	 *  challenge = the current challange for reference
 	 *
 	 * Throws if the challenge isn't accepted (or on timeout)
 	 */

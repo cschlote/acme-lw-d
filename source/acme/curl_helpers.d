@@ -31,7 +31,8 @@ public:
 /** Compose an error msg from custom and CURL error
  *
  * Params:
- *  msg - custom message
+ *  s = custom message
+ *  c = CURLcode
  */
 string getCurlError(string s, CURLcode c)
 {
@@ -46,8 +47,8 @@ string getCurlError(string s, CURLcode c)
 /** Get just the http receive headers with a given name from an URL
 
 	Params:
-	  url - Url to query
-	  headerKey - headerline to query
+	  url = Url to query
+	  headerKey = headerline to query
 	Returns:
 	  the value of a given header or null
  */
@@ -74,10 +75,11 @@ string getResponseHeader(string url, string headerKey)
 /** Do some posting, filter for some headerkey
  *
  * Params:
- *  url - url to pst to
- *  postBody - data to post
- *  rheaders - responseheader to return
- *  nonce - pointer to nonce string, so that we can update it.
+ *  url = url to pst to
+ *  postBody = data to post
+ *  status = storage for a HTTP.StatusLine
+ *  rheaders = responseheader to return
+ *  nonce = pointer to nonce string, so that we can update it.
  *
  * Returns:
  *   the received payload of the POST operation

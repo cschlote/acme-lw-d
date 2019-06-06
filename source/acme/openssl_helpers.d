@@ -32,7 +32,7 @@ import acme.exception;
 /** Get the contents of a big number as string
  *
  * Param:
- *  bn - pointer to a big number structure
+ *  bn = pointer to a big number structure
  * Returns:
  *  a string representing the BIGNUM
  */
@@ -50,7 +50,7 @@ string getBigNumber(BIGNUM* bn)
 /** Get the content bytes of a big number as string
  *
  * Param:
- *  bn - pointer to a big number structure
+ *  bn = pointer to a big number structure
  * Returns:
  *  a string representing the BIGNUM
  */
@@ -73,7 +73,7 @@ ubyte[] getBigNumberBytes(const BIGNUM* bn)
 /** Export BIO contents as an array of chars
  *
  * Param:
- *   bio - pointer to a BIO structure
+ *   bio = pointer to a BIO structure
  * Returns:
  *   An array of chars representing the BIO structure
  */
@@ -100,7 +100,7 @@ char[] toVector(BIO * bio)
 /** Export BIO contents as an array of immutable chars (string)
  *
  * Param:
- *   bio - pointer to a BIO structure
+ *   bio = pointer to a BIO structure
  * Returns:
  *   An array of immutable chars representing the BIO structure
  */
@@ -118,7 +118,7 @@ string toString(BIO *bio)
  * alternative we could also use the phobos routines.
  *
  * Params:
- *  t - data to encode as base64
+ *  t = data to encode as base64
  * Returns:
  *  An array of chars with the base64 encoded data.
  */
@@ -153,7 +153,7 @@ char[] base64Encode(T)(T t)
  *  * '=' terminates the output at this point, stripping all '=' chars
  *
  * Params:
- *  t - data to encode as base64
+ *  t = data to encode as base64
  * Returns:
  *  An array of chars with the base64 encoded data.
  */
@@ -185,7 +185,7 @@ char[] base64EncodeUrlSafe(T)(T t)
  *  * '=' terminates the output at this point, stripping all '=' chars
  *
  * Params:
- *  bn - pointer to BIGNUM to encode as base64
+ *  bn = pointer to BIGNUM to encode as base64
  * Returns:
  *  An array of chars with the base64 encoded data.
  */
@@ -204,7 +204,7 @@ char[] base64EncodeUrlSafe(const BIGNUM* bn)
  * also use functions from the phobos library.
  *
  * Param:
- *  s - string to calculate hash from
+ *  s = string to calculate hash from
  * Returns:
  *  ubyte[SHA256_DIGEST_LENGTH] for the hash
  */
@@ -224,7 +224,7 @@ ubyte[SHA256_DIGEST_LENGTH] sha256Encode(const char[] s)
 /** Convert certificate from DER format to PEM format
  *
  * Params:
- *   der - DER encoded certificate
+ *   der = DER encoded certificate
  * Returns:
  *   a PEM-encoded certificate
  */
@@ -250,8 +250,8 @@ extern(C) ASN1_TIME * C_X509_get_notAfter(const char* certPtr, int certLen);
 /** Extract expiry date from a PEM encoded Zertificate
  *
  * Params:
- *  cert - PEM encoded certificate to query
- *  extractor - function or delegate process an ASN1_TIME* argument.
+ *  cert = PEM encoded certificate to query
+ *  extractor = function or delegate process an ASN1_TIME* argument.
  */
 T extractExpiryData(T, alias extractor)(const(char[]) cert)
 {
@@ -278,7 +278,7 @@ alias tupleCsrPkey = Tuple!(string, "csr", string, "pkey");
 /** Create a CSR with our domains
  *
  * Params:
- *   domainNames - Names of domains, first element is subject of cert
+ *   domainNames = Names of domains, first element is subject of cert
  * Returns:
  *   tupleCsrPkey containing CSr and PKey
  */
@@ -385,8 +385,8 @@ tupleCsrPkey makeCertificateSigningRequest(string[] domainNames)
 /** Sign a given string with an SHA256 hash
  *
  * Param:
- *  s - string to sign
- *  privateKey - signing key to use
+ *  s = string to sign
+ *  privateKey = signing key to use
  *
  *  Returns:
  *    A SHA256 signature on provided data
@@ -525,10 +525,9 @@ version (HAS_WORKING_SSL)
 		X509_NAME * name;
 		name = X509_get_subject_name(x509);
 
-		X509_NAME_add_entry_by_txt(name, cast(char*)("ST".ptr),  MBSTRING_ASC, cast(ubyte*)("Niedersachsen".ptr), -1, -1, 0);
+		X509_NAME_add_entry_by_txt(name, cast(char*)("ST".ptr), MBSTRING_ASC, cast(ubyte*)("Niedersachsen".ptr), -1, -1, 0);
 		X509_NAME_add_entry_by_txt(name, cast(char*)("L".ptr),  MBSTRING_ASC, cast(ubyte*)("Hannover".ptr), -1, -1, 0);
-		//OU Filed BREAKS precessing of CSR on LCG. Also see CON-289 - keep info at minimum for reduced size
-		//X509_NAME_add_entry_by_txt(name, "OU",  MBSTRING_ASC, (unsigned char *)"IT", -1, -1, 0);
+		X509_NAME_add_entry_by_txt(name, cast(char*)("OU".ptr), MBSTRING_ASC, cast(ubyte*)("IT".ptr), -1, -1, 0);
 		X509_NAME_add_entry_by_txt(name, cast(char*)("O".ptr),  MBSTRING_ASC, cast(ubyte*)("Vahanus ".ptr), -1, -1, 0);
 		X509_NAME_add_entry_by_txt(name, cast(char*)("C".ptr),  MBSTRING_ASC, cast(ubyte*)("DE".ptr), -1, -1, 0);
 		X509_NAME_add_entry_by_txt(name, cast(char*)("CN".ptr), MBSTRING_ASC, cast(ubyte*)(dev_serial.toStringz), -1, -1, 0);
@@ -559,6 +558,27 @@ version (HAS_WORKING_SSL)
 		return x509;
 	}
 
+	/** Add extension using V3 code: we can set the config file as null
+	 * because we wont reference any other sections.
+	 *
+	 * Params:
+	 *   sk = pointer to STACK_OF(X509_EXTENSION
+	 *   nid = Extention ID
+	 *   value = value of nid
+	 * Returns:
+	 * 	  bool_t: 0 == False, !=0 True
+	 */
+	private
+	bool add_req_ext(STACK_OF!X509_EXTENSION *sk, int nid, string value)
+	{
+		X509_EXTENSION *ex;
+		ex = X509V3_EXT_conf_nid(cast(LHASH_OF!(CONF_VALUE)*)null, cast(v3_ext_ctx*)null, nid, cast(char*)value.toStringz);
+		if (!ex)
+			return false;
+		sk_X509_EXTENSION_push(sk, ex);
+		return true;
+	}
+
 	/** Make a x509 CSR (cert signing request)
 	 * @param pkey pointer to pkey struct to store
 	 * @param dev_serial pointer to device serial string
@@ -583,10 +603,9 @@ version (HAS_WORKING_SSL)
 
 		/* Setup some fields for the CSR */
 		version(none) {
-			X509_NAME_add_entry_by_txt(name, cast(char*)("ST".ptr),  MBSTRING_ASC, cast(ubyte*)("Niedersachsen".ptr), -1, -1, 0);
+			X509_NAME_add_entry_by_txt(name, cast(char*)("ST".ptr), MBSTRING_ASC, cast(ubyte*)("Niedersachsen".ptr), -1, -1, 0);
 			X509_NAME_add_entry_by_txt(name, cast(char*)("L".ptr),  MBSTRING_ASC, cast(ubyte*)("Hannover".ptr), -1, -1, 0);
-			//OU Filed BREAKS precessing of CSR on LCG. Also see CON-289 - keep info at minimum for reduced size
-			//X509_NAME_add_entry_by_txt(name, "OU",  MBSTRING_ASC, (unsigned char *)"IT", -1, -1, 0);
+			X509_NAME_add_entry_by_txt(name, cast(char*)("OU".ptr), MBSTRING_ASC, cast(ubyte*)("IT".ptr), -1, -1, 0);
 			X509_NAME_add_entry_by_txt(name, cast(char*)("O".ptr),  MBSTRING_ASC, cast(ubyte*)("Vahanus ".ptr), -1, -1, 0);
 			X509_NAME_add_entry_by_txt(name, cast(char*)("C".ptr),  MBSTRING_ASC, cast(ubyte*)("DE".ptr), -1, -1, 0);
 			X509_NAME_add_entry_by_txt(name, cast(char*)("CN".ptr), MBSTRING_ASC, cast(ubyte*)(dev_serial.toStringz), -1, -1, 0);
@@ -614,7 +633,7 @@ version (HAS_WORKING_SSL)
 			sk_X509_EXTENSION_pop_free(extensions, &X509_EXTENSION_free);
 		}
 
-		/* Code below BREAKS acception of CSR at LCG. Also see CON-289 - minimize cert size, leave it out. */
+		/* Code below might BREAK acception of CSR at ACME server. Leave it out for now. */
 		version(hasExtentions) {
 			STACK_OF(X509_EXTENSION) *exts = sk_X509_EXTENSION_new_null();
 
@@ -685,27 +704,6 @@ else
 }
 
 
-/++
-/* Code below commented out, obsolete function */
-/** Add extension using V3 code: we can set the config file as null
- * because we wont reference any other sections.
- * @param sk pointer to STACK_OF(X509_EXTENSION
- * @param nid Extention ID
- * @param value value of nid
- * Returns: bool_t: 0 == False, !=0 True
- * @internal
- */
-static
-bool_t add_req_ext(STACK_OF(X509_EXTENSION) *sk, int nid, cstring_p value)
-{
-	X509_EXTENSION *ex;
-	ex = X509V3_EXT_conf_nid(null, null, nid, value);
-	if (!ex)
-		return False;
-	sk_X509_EXTENSION_push(sk, ex);
-	return True;
-}
-++/
 
 /** Get a CSR as PEM string */
 char[] SSL_x509_get_PEM(X509_REQ* x509_req)
@@ -915,8 +913,8 @@ unittest {
  * It's returned as PEM encoded text.
  *
  * Params:
- *   prkey - private key as PEM string
- *   serial - same custom data, e.g. a serial number
+ *   prkey = private key as PEM string
+ *   domainNames = same custom data, e.g. a serial number
  * Returns:
  *   ERROR: pointer to pem encoded string of CSR.
  *   CORRECT: pointer to bas64url encoded DER data! See RFC.
