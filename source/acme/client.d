@@ -120,7 +120,7 @@ unittest
 			test.directoryUrl = url;
 			test.getResources();
 		}
-		myLog("Received directory data :\n", test.directoryJson.toPrettyString);
+		writeln("Received directory data :\n", test.directoryJson.toPrettyString);
 		assert( test.directoryUrl !is null, "Shouldn't be null");
 
 		assert( test.keyChangeUrl !is null, "Shouldn't be null");
