@@ -4,7 +4,7 @@
 	],
 	"copyright": "Copyright © 2019, Carsten Schlote",
 	"description": "A lightweight ACME protocol client written in the D computer language",
-	"license": "proprietary",
+	"license": "BSL-1.0",
 	"name": "acme-lw-d",
 	"versions": [ "STAGING" ],
 	"dependencies": {
