@@ -9,10 +9,10 @@ DISASM = $(OBJS:%.o=%.asm)
 %.asm : %.o
 	$(CROSSCOMPILE)objdump -dSth $< | ddemangle > $@
 
-%.o : %.d ; Makefile
+%.o : %.d
 	$(CROSSCOMPILE)$(DC) -c $(DFLAGS) $< -of $@
 
-%.o : %.c ; Makefile %.h
+%.o : %.c %.h
 	pwd
 	$(CROSSCOMPILE)$(CC) -c $(CFLAGS) $< -o $@
 	ls
@@ -27,7 +27,7 @@ openssl_glues.di : openssl_glues.h Makefile
 	@echo "import deimos.openssl.x509;" >> openssl_glues.di
 	@echo "import deimos.openssl.x509v3;" >> openssl_glues.di
 	@echo "extern(C) :" >> openssl_glues.di
-	@cat $<  >> openssl_glues.di
+	@cat $< | sed -e 's/(void)/()/g' >> openssl_glues.di
 
 all : $(OBJS) $(DISASM)
 

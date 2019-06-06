@@ -69,7 +69,7 @@ void C_SSL_CloseLibrary(void)
 }
 
 /** Make a x509 pkey */
-EVP_PKEY* C_SSL_x509_make_pkey()
+EVP_PKEY* C_SSL_x509_make_pkey(int bits)
 {
 	BIGNUM* e = BN_new();
 	if (!BN_set_word(e, RSA_F4)) {
@@ -77,7 +77,7 @@ EVP_PKEY* C_SSL_x509_make_pkey()
 	}
 	RSA * rsa = RSA_new();
 	int rc = RSA_generate_key_ex(rsa,
-			2048,   /* number of bits for the key - 2048 is a sensible value */
+			bits,   /* number of bits for the key - 2048 is a sensible value */
 			e,   /* callback - can be NULL if we aren't displaying progress */
 			NULL    /* callback argument - not needed in this case */
 		);
