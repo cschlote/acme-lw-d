@@ -1,0 +1,33 @@
+
+image: docker.vahanus.com/ubuntu-dlang-dev:latest
+
+variables:
+  GIT_SUBMODULE_STRATEGY: normal
+
+stages:
+- lint
+- build
+- deploy
+
+lint-scripts:
+  tags:
+  - gitlabdocker
+  stage: lint
+  script:
+  - echo "linting $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+
+build-image:
+  tags:
+  - gitlabdocker
+  stage: build
+  script:
+  - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+  - pwd
+
+deploy-tool:
+  tags:
+  - gitlabdocker
+  stage: deploy
+  script:
+  - echo "cleaning $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+  when: manual
