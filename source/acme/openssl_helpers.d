@@ -272,6 +272,8 @@ T extractExpiryData(T, alias extractor)(const(char[]) cert)
 
 /* ----------------------------------------------------------------------- */
 
+auto X509_REQ_get_subject_name()(X509_req_st* x) { return (x.req_info.subject); }
+
 /// Return tuple of makeCertificateSigningRequest
 alias tupleCsrPkey = Tuple!(string, "csr", string, "pkey");
 
@@ -381,6 +383,8 @@ tupleCsrPkey makeCertificateSigningRequest(string[] domainNames)
 }
 
 /* ----------------------------------------------------------------------- */
+
+extern(C) EVP_MD_CTX* EVP_MD_CTX_new();
 
 /** Sign a given string with an SHA256 hash
  *
