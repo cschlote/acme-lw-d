@@ -1,32 +1,50 @@
 
-image: docker.vahanus.com/ubuntu-dlang-dev:latest
+#image: docker.vahanus.com/ubuntu-dlang-dev:latest
 
 variables:
   GIT_SUBMODULE_STRATEGY: normal
+
+before_script:
+  - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin docker.vahanus.com
 
 stages:
 - lint
 - build
 - deploy
 
-lint-scripts:
+lint-program:
   tags:
-  - gitlabdocker
+  - gitlabshell
+  - docker
   stage: lint
   script:
   - echo "linting $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+  - dub fetch dscanner
+  - dub run dscanner -- --report source
 
-build-image:
+build-program:
   tags:
-  - gitlabdocker
+  - gitlabshell
+  - docker
   stage: build
   script:
   - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-  - pwd
+  - dub build
+  - dub build -b ddox
 
-deploy-tool:
+test-program:
   tags:
-  - gitlabdocker
+  - gitlabshell
+  - docker
+  stage: build
+  script:
+  - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+  - dub test
+
+deploy-program:
+  tags:
+  - gitlabshell
+  - docker
   stage: deploy
   script:
   - echo "cleaning $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."

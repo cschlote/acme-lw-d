@@ -395,7 +395,6 @@ tupleCsrPkey makeCertificateSigningRequest(string[] domainNames)
 char[] signDataWithSHA256(char[] s, EVP_PKEY* privateKey)
 {
 	size_t signatureLength = 0;
-
 	EVP_MD_CTX* context = EVP_MD_CTX_new();
 	const EVP_MD * sha256 = EVP_get_digestbyname("SHA256");
 	if ( !sha256 ||
@@ -634,7 +633,7 @@ version (HAS_WORKING_SSL)
 		}
 
 		/* Code below might BREAK acception of CSR at ACME server. Leave it out for now. */
-		version(hasExtentions) {
+		version(none) {
 			STACK_OF(X509_EXTENSION) *exts = sk_X509_EXTENSION_new_null();
 
 			// # Extensions for client certificates (`man x509v3_config`).

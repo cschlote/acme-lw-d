@@ -4,17 +4,17 @@ CFLAGS = -g -Os -Wall
 
 OBJS = openssl_glues.o openssl_glues.di
 
-DISASM = $(OBJS:%.o=%.asm)
+# DISASM = $(OBJS:%.o=%.asm)
 
-%.asm : %.o
-	$(CROSSCOMPILE)objdump -dSth $< | ddemangle > $@
+#%.asm : %.o
+#	$(CROSSCOMPILE)objdump -dSth $< | ddemangle > ${DUB_PACKAGE_DIR}$@
 
 %.o : %.d
-	$(CROSSCOMPILE)$(DC) -c $(DFLAGS) $< -of $@
+	$(CROSSCOMPILE)$(DC) -c $(DFLAGS) $< -of ${DUB_PACKAGE_DIR}$@
 
 %.o : %.c %.h
 	pwd
-	$(CROSSCOMPILE)$(CC) -c $(CFLAGS) $< -o $@
+	$(CROSSCOMPILE)$(CC) -c $(CFLAGS) $< -o ${DUB_PACKAGE_DIR}$@
 	ls
 
 openssl_glues.di : openssl_glues.h Makefile
