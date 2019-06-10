@@ -618,14 +618,17 @@ public:
 			throw new AcmeException("Verification for passed challange failed.");
 			//return cast(Certificate)null;
 		}
+
 		// Poll waiting for the CA to verify the challenge
 		int counter = 0;
-		enum count = 10;
+		enum loopDelay = 2;
+		enum maxRetryCount = 60;
+		writefln("Waiting for valid http-01 challange. (%d times a %d seconds)", maxRetryCount, loopDelay);
 		do
 		{
 			// sleep for a second
 			import core.thread : Thread;
-			Thread.sleep(dur!"seconds"(2));
+			Thread.sleep(dur!"seconds"(loopDelay));
 
 			// get response from verification URL
 			response = sendRequest!string(authorizationUrl, "", &statusLine);
@@ -641,11 +644,13 @@ public:
 				myLog(json.toPrettyString);
 				if (json["status"].str == "valid")
 				{
-					myLog("Challange valid. Continue.");
+					writeln("Challange valid. Continue.");
 					return;
 				}
+				else
+					myLog!writefln("Waiting for http-01 challange to be valid (%d/%d)", counter, maxRetryCount);
 			}
-		} while (counter++ < count);
+		} while (counter++ < maxRetryCount);
 
 		throw new AcmeException("Failure / timeout verifying challenge passed");
 	}
