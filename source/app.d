@@ -33,7 +33,7 @@ enum argRSABitsEnum {
 };
 argRSABitsEnum argRSABits;   /// Select the number of bit by the enum name
 bool argVerbose;             /// Verbosity mode?
-bool argUseStaging;
+bool argUseStaging;          /// Use staging server
 bool argTosAgree;            /// Agree to Terms of Service
 
 /* Help texts */
@@ -85,9 +85,6 @@ int handleChallenge(string domain, string url, string keyAuthorization)
  */
 int main(string[] args)
 {
-	version (STAGING)
-		writeln("THIS IS BETA SOFTWARE. Running against staging environment!");
-
 	if (args.length <= 1) args ~= "-h";
 	auto helpInformation = getopt(
 		args,
@@ -118,6 +115,14 @@ int main(string[] args)
 	assert(argDomainKeyFile !is null, "The path should be set?!");
 	assert(argDomainNames.length >= 1, "No domain names found?!");
 	assert(argContacts.length >= 1, "No contacts found?!");
+
+	if (argUseStaging) {
+		writeln("Note: Running against staging environment!");
+		useStagingServer = true;
+	} else {
+		writeln("Note: Running against production environment!");
+		useStagingServer = false;
+	}
 
 	/* -- Read the keys from disk ---------------------------------------- */
 	string privateKeyData;

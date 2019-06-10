@@ -22,15 +22,12 @@ import deimos.openssl.x509v3;
 
 import acme;
 
+bool useStagingServer = true;
+
 /* ------------------------------------------------------------------------ */
 
 enum directoryUrlProd = "https://acme-v02.api.letsencrypt.org/directory";
 enum directoryUrlStaging = "https://acme-staging-v02.api.letsencrypt.org/directory";
-
-version (STAGING)
-	enum directoryUrlInit = directoryUrlStaging;
-else
-	enum directoryUrlInit = directoryUrlProd;
 
 /* ------------------------------------------------------------------------ */
 
@@ -57,7 +54,7 @@ struct AcmeResources
 	string newCertUrl;
 	string newRegUrl;
 
-	void init(string initstr = directoryUrlInit) {
+	void init(string initstr = directoryUrlStaging) {
 		directoryUrl = initstr;
 	}
 	void decodeDirectoryJson(const(char[]) directory)
@@ -316,7 +313,7 @@ public:
 	{
 		beVerbose_ = beVerbose;
 
-		acmeRes.init();
+		acmeRes.init( useStagingServer ? directoryUrlStaging : directoryUrlProd);
 		SSL_OpenLibrary();
 
 		/* Create the private key */

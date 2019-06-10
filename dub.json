@@ -6,7 +6,7 @@
 	"description": "A lightweight ACME protocol client written in the D computer language",
 	"license": "BSL-1.0",
 	"name": "acme-lw-d",
-	"versions": [ "STAGING" ],
+	"versions": [ ],
 	"dependencies": {
 		"openssl": "~>2.0.0+1.1.0h"
 	},
