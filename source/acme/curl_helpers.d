@@ -24,8 +24,8 @@ void myLog(alias fun = writeln, T...)(T args)
 /** Current release number - FIXME Derive this from Git Tag. How in D? */
 
 public:
-	enum acmeClientVersion = "0.0.1";
-	public bool curlBeVerbose = false;
+	enum acmeClientVersion = "0.1.8"; /// Client Version FIXME How to set this from cmdline?
+	bool curlBeVerbose = false; /// Use verbose outputs?
 
 
 /** Compose an error msg from custom and CURL error
@@ -36,7 +36,7 @@ public:
  */
 string getCurlError(string s, CURLcode c)
 {
-	import std.format;
+	import std.format : format;
 	auto errorstring = curl_easy_strerror(c).to!string;
 	auto resultstring = format( "%s\nErrorcode: %d (%s)", s, c, errorstring);
     return resultstring;
@@ -89,7 +89,7 @@ string doPost(string url, char[] postBody, HTTP.StatusLine* status,
 	string* nonce)
 {
 	string response;
-	string headerVal;
+	//string headerVal;
 
 	auto http = HTTP(url);
 	http.setUserAgent = "acme-lw-d/" ~ acmeClientVersion ~ " " ~ HTTP.defaultUserAgent();

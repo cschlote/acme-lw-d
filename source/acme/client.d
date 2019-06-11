@@ -22,11 +22,14 @@ import deimos.openssl.x509v3;
 
 import acme;
 
+/** By default, we always use the staging and test server. */
 bool useStagingServer = true;
 
 /* ------------------------------------------------------------------------ */
 
+/** Url to official v2 API of letsencrypt */
 enum directoryUrlProd = "https://acme-v02.api.letsencrypt.org/directory";
+/** Url to official v2 staging API of letsencrypt */
 enum directoryUrlStaging = "https://acme-staging-v02.api.letsencrypt.org/directory";
 
 /* ------------------------------------------------------------------------ */
@@ -49,14 +52,16 @@ struct AcmeResources
 
 	string metaJson;         /// Metadata as JSON string (undecoded)
 
-	// FIXME
 	string accountUrl;       /// Account Url for a JWK.
-	string newCertUrl;
-	string newRegUrl;
+	// FIXME Are these members obsolete or from V1 API?
+	//string newCertUrl;
+	//string newRegUrl;
 
-	void init(string initstr = directoryUrlStaging) {
+	/** Init the Resource with a ACME directory URL */
+	void initClient(string initstr = directoryUrlStaging) {
 		directoryUrl = initstr;
 	}
+	/** Decode a ACME directory JSON */
 	void decodeDirectoryJson(const(char[]) directory)
 	{
 		directoryJson = parseJSON(directory);
@@ -68,8 +73,9 @@ struct AcmeResources
 		if ("revokeCert" in json) this.revokeCrtUrl = json["revokeCert"].str;
 
 		if ("newAuthz" in json) this.newAuthZUrl = json["newAuthz"].str;
-		if ("newCert" in json) this.newCertUrl = json["newCert"].str;
-		if ("newReg" in json) this.newRegUrl = json["newReg"].str;
+		/* Are the following fields obsolete or v1? */
+		//if ("newCert" in json) this.newCertUrl = json["newCert"].str;
+		//if ("newReg" in json) this.newRegUrl = json["newReg"].str;
 
 		if ("meta" in json) this.metaJson = json["meta"].toJSON;
 	}
@@ -110,10 +116,10 @@ unittest
 	{
 		AcmeResources test;
 		if (url is null) {
-			test.init();
+			test.initClient();
 			test.decodeDirectoryJson(dirTestData);
 		} else {
-			test.init(url);
+			test.initClient(url);
 			test.directoryUrl = url;
 			test.getResources();
 		}
@@ -140,7 +146,7 @@ unittest
 
 /* ------------------------------------------------------------------------ */
 
-// Missing in D binding?
+/** Missing in D binding? */
 extern(C) int ASN1_TIME_diff(int *pday, int *psec, const ASN1_TIME *from, const ASN1_TIME *to);
 
 /** An openssl certificate */
@@ -248,7 +254,8 @@ private:
 	 *
 	 * See: https://tools.ietf.org/html/rfc7515
 	 */
-	T sendRequest(T, bool useKID = true)(string url, string payload, HTTP.StatusLine* status = null, string[string]* rheaders = null)
+	T sendRequest(T, bool useKID = true)
+		(string url, string payload, HTTP.StatusLine* status = null, string[string]* rheaders = null)
 			if ( is(T : string) || is(T : char[]) || is(T : ubyte[]))
 	{
 		string nonce = this.acmeRes.nonce;
@@ -268,7 +275,7 @@ private:
 
 		protectd = base64EncodeUrlSafe(protectd);
 
-		char[] payld = base64EncodeUrlSafe(payload);
+		const char[] payld = base64EncodeUrlSafe(payload);
 
 		auto signData = protectd ~ "." ~ payld;
 		myLog!writefln("Data to sign: %s", signData);
@@ -299,7 +306,7 @@ private:
 	}
 
 public:
-	AcmeResources acmeRes;       // The Url to the ACME resources
+	AcmeResources acmeRes;       /// The Urls to the ACME resources
 
 
 	/** Instanciate a AcmeClient using a private key for signing
@@ -313,7 +320,7 @@ public:
 	{
 		beVerbose_ = beVerbose;
 
-		acmeRes.init( useStagingServer ? directoryUrlStaging : directoryUrlProd);
+		acmeRes.initClient( useStagingServer ? directoryUrlStaging : directoryUrlProd);
 		SSL_OpenLibrary();
 
 		/* Create the private key */
@@ -387,7 +394,7 @@ public:
 	 *   onlyReturnExisting = do not create a new account, but only reuse an
 	 *                 existing one. Defaults to false. When set to true, an
 	 *                 account is never created, but only existing accounts are
-	 *                 returned.
+	 *                 returned. Useful to lookup the accountUrl of an key.
 	 *
 	 * Note: tosAgreed must be queried from user, e.g. by setting a commandline
 	 *       option. This is required by the RFC8555.
@@ -401,7 +408,10 @@ public:
 		/* Create newAccount payload */
 		JSONValue jvPayload;
 		jvPayload["termsOfServiceAgreed"] = tosAgreed;
-		JSONValue jvContact = contacts;
+		/* Do not create new account? Used for lookups of accountURL */
+		if (onlyReturnExisting)
+			jvPayload["onlyReturnExisting"] = true;
+		const JSONValue jvContact = contacts;
 		jvPayload["contact"] = jvContact;
 
 		string payload = jvPayload.toJSON;
@@ -538,10 +548,10 @@ public:
 							if ( ("type" in challenge) &&
 							     (challenge["type"].str == "http-01") )
 							{
-								string token = challenge["token"].str;
+								const string token = challenge["token"].str;
 								string url = "http://" ~ domain ~ "/.well-known/acme-challenge/" ~ token;
 								string keyAuthorization = token ~ "." ~ jwkThumbprint_.to!string;
-								auto rc = callback(domain, url, keyAuthorization);
+								const auto rc = callback(domain, url, keyAuthorization);
 								if (rc != 0)
 									throw new AcmeException("challange setup script failed.");
 								verifyChallengePassed(authorizationUrl.str, challenge);

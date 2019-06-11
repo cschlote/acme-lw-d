@@ -31,9 +31,10 @@ int setupChallenge(string domain, string url, string keyAuthorization)
 		url, keyAuthorization, domain);
 
 	/* Setup command string */
-	import std.string;
-	string filename = (url.split("/"))[$-1];
-	string cmd = "rsh raspi3 \"echo " ~ keyAuthorization ~ " > /var/www/html/.well-known/acme-challenge/" ~ filename ~ "\"";
+	import std.string : split;
+	const string filename = (url.split("/"))[$-1];
+	string cmd = "rsh raspi3 \"echo " ~ keyAuthorization
+		~ " > /var/www/html/.well-known/acme-challenge/" ~ filename ~ "\"";
 	stdout.flush;
 
 	/* Execute the command */

@@ -27,16 +27,16 @@ string argChallangeScript;   /// Name of challange script to call
 string[] argDomainNames;     /// The list of domain names
 string[] argContacts;        /// The list of account names
 /// Supported key sizes
-enum argRSABitsEnum {
+enum ArgRSABitsEnum {
 	rsa2048 = 2048,
 	rsa4096 = 4096
-};
-argRSABitsEnum argRSABits;   /// Select the number of bit by the enum name
+}
+ArgRSABitsEnum argRSABits;   /// Select the number of bit by the enum name
 bool argVerbose;             /// Verbosity mode?
 bool argUseStaging;          /// Use staging server
 bool argTosAgree;            /// Agree to Terms of Service
 
-/* Help texts */
+/** Long Help text and example */
 enum helpLongText = q"(
 Example:
   $ ./acme-lw-d -k key.pem -p domain.key -o domain.pem \
