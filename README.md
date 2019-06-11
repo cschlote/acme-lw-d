@@ -8,6 +8,17 @@ It has the following properties.
 * A commandline tool provides all operations of RFC855 as best as possible
 * It hast ddox and unittest support.
 
+### Referenzes
+
+* https://tools.ietf.org/html/rfc8555  Automatic Certificate Management Environment (ACME)
+* https://tools.ietf.org/html/rfc7638  JSON Web Key (JWK) Thumbprint
+* https://tools.ietf.org/html/rfc7518  JSON Web Algorithms (JWA)
+* https://tools.ietf.org/html/rfc7515  JSON Web Signature (JWS)
+* https://tools.ietf.org/html/rfc7231  Hypertext Transfer Protocol (HTTP)
+
+* https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying
+* https://github.com/letsencrypt/boulder/blob/master/csr/csr.go
+
 #### Building and Installing
 
 Building requires dub, openssl and curl. On Debian based systems you can
