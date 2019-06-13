@@ -131,7 +131,7 @@ int main(string[] args)
 		if (argVerbose) writefln("Read private key for ACME account from %s.", argPrivateKeyFile);
 	} else {
 		import acme.openssl_helpers : openSSL_CreatePrivateKey;
-		privateKeyData = openSSL_CreatePrivateKey().idup;
+		privateKeyData = openSSL_CreatePrivateKey(argRSABits).idup;
 		std.file.write(argPrivateKeyFile, privateKeyData);
 		if (argVerbose) writeln("Created private key for ACME account.");
 	}
@@ -143,7 +143,7 @@ int main(string[] args)
 	}
 	else {
 		import acme.openssl_helpers : openSSL_CreatePrivateKey;
-		domainKeyData = openSSL_CreatePrivateKey().idup;
+		domainKeyData = openSSL_CreatePrivateKey(argRSABits).idup;
 		std.file.write(argDomainKeyFile, domainKeyData);
 		if (argVerbose) writeln("Created private key for ACME account.");
 	}
