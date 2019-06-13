@@ -337,6 +337,9 @@ public:
 		jwkString_ = jvJWK.toJSON;
 		jwkSHAHash_ = sha256Encode( jwkString_ );
 		jwkThumbprint_ = jwkSHAHash_.base64EncodeUrlSafe.idup;
+		myLog("JWK:\n", jvJWK.toPrettyString);
+		myLog("SHA of JWK:\n", jwkSHAHash_);
+		myLog("Thumbprint of JWK:\n", jwkThumbprint_);
 	}
 	~this () {
 		SSL_CloseLibrary();
