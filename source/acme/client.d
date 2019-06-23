@@ -231,8 +231,10 @@ private:
 
 	void myLog(alias fun = writeln, T...)(T args)
 	{
-		if (beVerbose_)
+		if (beVerbose_) {
 			fun(args);
+			stdout.flush;
+		}
 	}
 
 	/** Create and send a JWS request with payload to a ACME enabled CA server
@@ -268,7 +270,7 @@ private:
 		jvReqHeader["nonce"] = nonce;
 		jvReqHeader["url"] = url;
 		char[] protectd = jvReqHeader.toJSON.dup;
-
+		myLog(protectd);
 		protectd = base64EncodeUrlSafe(protectd);
 
 		const char[] payld = base64EncodeUrlSafe(payload);
