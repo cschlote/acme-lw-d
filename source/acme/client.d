@@ -434,7 +434,8 @@ public:
 			writeln("Account Location : ", acmeRes.accountUrl);
 
 			auto json = parseJSON(response);
-			writeln("Account Creation : ", json["createdAt"]);
+			if ("createdAt" in json)
+				writeln("Account Creation : ", json["createdAt"]);
 			// ...
 			rc = true;
 		}
