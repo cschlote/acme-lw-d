@@ -77,7 +77,11 @@ struct AcmeResources
 	{
 		try
 		{
-			char[] directory = get(this.directoryUrl);
+			auto conn = HTTP(this.directoryUrl);
+			conn.setUserAgent = "acme-lw-d/" ~ acmeClientVersion ~ " " ~ HTTP.defaultUserAgent();
+			conn.method = HTTP.Method.get;
+			debug { conn.verifyPeer = false; }
+			char[] directory = std.net.curl.get(this.directoryUrl, conn);
 			decodeDirectoryJson(directory);
 		}
 		catch (Exception e)
