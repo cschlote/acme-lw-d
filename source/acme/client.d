@@ -528,8 +528,14 @@ public:
 		 * by the time the certificate is requested. The assumption is that client retries
 		 * will deal with this.
 		 */
+		static if (!is(JSONType)) {
+			pragma(msg,"Has no public JSONType - skip test");
+			enum bool typeTestOk = true;
+		} else {
+			bool typeTestOk = json["status"].type == JSONType.string;
+		}
 		if ( ("status" in json) &&
-			 (json["status"].type == JSONType.string) &&
+			 (typeTestOk) &&
 			 (json["status"].str != "valid") )
 		{
 			if ("authorizations" in json) {
