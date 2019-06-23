@@ -20,6 +20,7 @@ import acme;
 
 /* Decoded Commandline Options */
 
+string argServerUrl;         /// Alternate server URL
 string argPrivateKeyFile;    /// The path to the private key for the ACME account
 string argDomainKeyFile;     /// The path to the private key for the certs and csr
 string argOutputFile;        /// The output path for the downloaded cert.
@@ -103,6 +104,7 @@ int main(string[] args)
 		"bits|b",    "RSA bits to use for keys. Used on new key creation", &argRSABits,
 		"agree|y",   "Agree to TermsOfService, when creating the account.", &argTosAgree,
 		"staging|s", "Use the staging server for initial testing or developing", &argUseStaging,
+		"server",    "Alternate ACME server directory url", &argServerUrl,
 		"verbose|v", "Verbose output", &argVerbose);
 	if (helpInformation.helpWanted)
 	{
@@ -157,6 +159,9 @@ int main(string[] args)
 
 		/* --- Create the ACME client object ----------------------------- */
 		AcmeClient acmeClient = new AcmeClient(privateKeyData, argVerbose);
+
+		if (argServerUrl)
+			acmeClient.acmeRes.directoryUrl = argServerUrl;
 
 		acmeClient.setupClient();
 		if (argVerbose) {
