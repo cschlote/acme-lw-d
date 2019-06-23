@@ -59,6 +59,7 @@ string getResponseHeader(string url, string headerKey)
 	auto http = HTTP(url);
 	http.setUserAgent = "acme-lw-d/" ~ acmeClientVersion ~ " " ~ HTTP.defaultUserAgent();
 	http.method = HTTP.Method.head;
+	debug { http.verifyPeer = false; }
 	http.onReceiveHeader =
 		(in char[] key, in char[] value)
 			{
@@ -93,6 +94,7 @@ string doPost(string url, char[] postBody, HTTP.StatusLine* status,
 
 	auto http = HTTP(url);
 	http.setUserAgent = "acme-lw-d/" ~ acmeClientVersion ~ " " ~ HTTP.defaultUserAgent();
+	debug { http.verifyPeer = false; }
 	http.verbose = curlBeVerbose;
 	http.method = HTTP.Method.post;
 	http.addRequestHeader("Content-Type", "application/jose+json");
