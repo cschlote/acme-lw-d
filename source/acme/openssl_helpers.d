@@ -109,11 +109,11 @@ char[] base64EncodeUrlSafe(T)(T t)
 	if ( is(T : string) || is(T : char[]) || is(T : ubyte[]))
 {
 	static if (is(T : ubyte[])) {
-		import std.base64;
+		import std.base64 : Base64URLNoPadding;
 		auto s = Base64URLNoPadding.encode(t);
 	} else {
 	    ubyte[] tt = (cast(ubyte*)t.ptr)[0..t.length];
-		import std.base64;
+		import std.base64 : Base64URLNoPadding;
 		auto s = Base64URLNoPadding.encode(tt);
 	}
 	return s;
@@ -156,7 +156,7 @@ char[] base64EncodeUrlSafe(const BIGNUM* bn)
  */
 auto sha256Encode(const char[] s)
 {
-	import std.digest.sha;
+	import std.digest.sha : sha256Of;
 	return sha256Of(s);
 }
 
@@ -173,8 +173,6 @@ string convertDERtoPEM(const char[] der)
 	/* Output data as data string */
 	return cast(string)(toVector(pemBio));
 }
-
-extern(C) ASN1_TIME * C_X509_get_notAfter(const char* certPtr, int certLen);
 
 /** Extract expiry date from a PEM encoded Zertificate
  *
@@ -203,7 +201,6 @@ T extractExpiryData(T, alias extractor)(const(char[]) cert)
  */
 char[] signDataWithSHA256(char[] s, EVP_PKEY* privateKey)
 {
-	size_t signatureLength = 0;
 	char[1024] sig;
 	auto rc = C_signDataWithSHA256(s.ptr, s.length.to!int, privateKey, sig.ptr, sig.length.to!int);
 	if (rc == 0)
@@ -387,18 +384,22 @@ else
 	import std.stdint;
 	import acme.openssl_glues;
 
+	/** Initialize library */
 	bool SSL_OpenLibrary()
 	{
 		return C_SSL_OpenLibrary();
 	}
+	/** Close library */
 	void SSL_CloseLibrary()
 	{
 		C_SSL_CloseLibrary();
 	}
+	/** Make a private key */
 	EVP_PKEY* SSL_x509_make_pkey(int bits)
 	{
 		return C_SSL_x509_make_pkey(bits);
 	}
+	/** Make a CSR */
 	X509_REQ* SSL_x509_make_csr(EVP_PKEY* pkey, string[] domainNames)
 	{
 		char*[] C_domainNames;
@@ -414,7 +415,7 @@ else
 char[] SSL_x509_get_PEM(X509_REQ* x509_req)
 {
 	char* rs = C_SSL_x509_get_PEM(x509_req);
-	import std.string;
+	import std.string : fromStringz;
 	return rs.fromStringz;
 }
 
@@ -469,10 +470,10 @@ EVP_PKEY * SSL_x509_read_pkey(char[] path)
  */
 char[] openSSL_CreatePrivateKey(int bits = 4096)
 {
-	import std.stdio;
+	//import std.stdio;
 	//writeln("Create a SSL pKey.");
 	char[] rs;
-	char*cs = C_openSSL_CreatePrivateKey(bits);
+	char* cs = C_openSSL_CreatePrivateKey(bits);
 	rs = cs.fromStringz;
 	return rs;
 }
@@ -492,7 +493,7 @@ unittest {
 	writeln("--- Benchmark creating a private key ---");
 	stdout.flush;
 	void benchCreateKeyStub() {
-		char[] tmp = openSSL_CreatePrivateKey();
+		const char[] tmp = openSSL_CreatePrivateKey();
 		assert(tmp !is null && !tmp.empty, "Empty private key.");
 	}
 	auto dur = benchmark!(benchCreateKeyStub)(100);
@@ -513,9 +514,6 @@ unittest {
  */
 char[] openSSL_CreateCertificateSignRequest(const char[] prkey, string[] domainNames)
 {
-	BIO *bio;
-	int rc;
-
 	/* Get EVP_PKEY from PEM encoded string */
 	EVP_PKEY* pkey;
 	RSA* rsa;
@@ -552,7 +550,7 @@ unittest {
 	writeln("--- Benchmark creating a CSR ---");
 	stdout.flush;
 	void benchCreateCSRStub() {
-		char[] tmp = openSSL_CreateCertificateSignRequest(myPKey, [ "bodylove.myds.me" ]);
+		const char[] tmp = openSSL_CreateCertificateSignRequest(myPKey, [ "bodylove.myds.me" ]);
 		assert(tmp !is null && !tmp.empty, "Empty CSR.");
 	}
 	auto dur = benchmark!(benchCreateCSRStub)(100);

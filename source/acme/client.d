@@ -148,8 +148,6 @@ unittest
 /** An openssl certificate */
 struct Certificate
 {
-	import acme.openssl_glues;
-
 	/** The full CA chain with cert */
 	string fullchain;
 	/** The private key to sign requests */
@@ -168,6 +166,7 @@ struct Certificate
 	*/
 	DateTime getExpiry() const
 	{
+		import acme.openssl_glues : ASN1_TIME, C_ASN1_TIME_diff;
 		static const(DateTime) extractor(const ASN1_TIME * t)
 		{
 			// See this link for issues in converting from ASN1_TIME to epoch time.
@@ -199,6 +198,7 @@ struct Certificate
 	*/
 	string getExpiryDisplay() const
 	{
+		import acme.openssl_glues : ASN1_TIME, C_ASN1_TIME_print, BIO, C_BIO_free;
 		string extractor(const ASN1_TIME * t)
 		{
 			BIO* b = C_ASN1_TIME_print(t);
@@ -219,7 +219,7 @@ struct Certificate
 class AcmeClient
 {
 private:
-	import acme.openssl_glues;
+	import acme.openssl_glues : EVP_PKEY;
 	EVP_PKEY*   privateKey_;     /// Copy of private key as ASC PEM
 
 	JSONValue   jwkData_;        /// JWK object as JSONValue tree
@@ -316,7 +316,7 @@ public:
 	 */
 	this(string accountPrivateKey, bool beVerbose = false)
 	{
-		import acme.openssl_glues;
+		import acme.openssl_glues : RSA, BIGNUM, C_RSA_Get0_key;
 		beVerbose_ = beVerbose;
 
 		acmeRes.initClient( useStagingServer ? directoryUrlStaging : directoryUrlProd);

@@ -65,7 +65,6 @@ bool C_SSL_OpenLibrary(void)
 /* Teardown SSL library */
 void C_SSL_CloseLibrary(void)
 {
-	/* Clean up */
 	OPENSSL_cleanup();
 }
 
@@ -102,11 +101,6 @@ int C_getBigNumberBytes(const BIGNUM* bn, void* buffer, int buffer_len)
 int C_BIO_read(BIO* bio, void* buffer, int buffer_length)
 {
 	return BIO_read(bio, buffer, buffer_length);
-}
-
-EVP_MD_CTX* C_EVP_MD_CTX_new()
-{
-	return EVP_MD_CTX_new();
 }
 
 /** Make a x509 pkey */
@@ -218,8 +212,7 @@ X509_REQ* C_SSL_x509_make_csr(EVP_PKEY* pkey, char** domainNames, int domainName
 	return x509_req;
 }
 
-
-ASN1_TIME * C_X509_get_notAfter(char* certPtr, int certLen)
+ASN1_TIME * C_X509_get_notAfter(const char* certPtr, int certLen)
 {
 	BIO* bio = BIO_new(BIO_s_mem());
 	if (BIO_write(bio, certPtr, certLen) <= 0)
