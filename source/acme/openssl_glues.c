@@ -40,6 +40,7 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
+#include <openssl/rsa.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
@@ -68,6 +69,46 @@ void C_SSL_CloseLibrary(void)
 	OPENSSL_cleanup();
 }
 
+/* BIO Helpers */
+BIO* C_BIO_new_BIO_s_mem()
+{
+	return BIO_new(BIO_s_mem());
+}
+
+int C_BIO_gets(BIO *b, char *buf, int size)
+{
+	return BIO_gets(b,buf,size);
+}
+
+int C_BN_print(BIO *fp, const BIGNUM *a)
+{
+	return BN_print(fp, a);
+}
+
+/* Bytes of long number */
+int C_getBigNumberBytes(const BIGNUM* bn, void* buffer, int buffer_len)
+{
+	/* Get number of bytes to store a BIGNUM */
+	int numBytes = BN_num_bytes(bn);
+
+	assert(numBytes <= buffer_len);
+
+	/* Copy bytes of BIGNUM to our buffer */
+	BN_bn2bin(bn, buffer);
+
+	return numBytes;
+}
+
+int C_BIO_read(BIO* bio, void* buffer, int buffer_length)
+{
+	return BIO_read(bio, buffer, buffer_length);
+}
+
+EVP_MD_CTX* C_EVP_MD_CTX_new()
+{
+	return EVP_MD_CTX_new();
+}
+
 /** Make a x509 pkey */
 EVP_PKEY* C_SSL_x509_make_pkey(int bits)
 {
@@ -88,79 +129,6 @@ EVP_PKEY* C_SSL_x509_make_pkey(int bits)
 	pkey = EVP_PKEY_new();
 	EVP_PKEY_assign_RSA(pkey, rsa);
 	return pkey;
-}
-
-/* Add extension using V3 code: we can set the config file as NULL,
- * because we wont reference any other sections.
- */
-bool C_add_ext(X509* cert, int nid, char* value)
-{
-	X509_EXTENSION *ex;
-	X509V3_CTX ctx;
-	/* This sets the 'context' of the extensions. */
-	/* No configuration database */
-	X509V3_set_ctx_nodb(&ctx);
-	/* Issuer and subject certs: both the target since it is self signed,
-	 * no request and no CRL
-	 */
-	X509V3_set_ctx(&ctx, cert, cert, NULL, NULL, 0);
-	ex = X509V3_EXT_conf_nid(NULL, &ctx, nid, value);
-	if (!ex)
-		return false;
-
-	X509_add_ext(cert, ex, -1);
-	X509_EXTENSION_free(ex);
-	return true;
-}
-
-/** Make a x509 cert */
-X509* C_SSL_x509_make_cert(EVP_PKEY* pkey, char* subject)
-{
-	X509 * x509;
-	x509 = X509_new();
-
-	ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
-
-	X509_gmtime_adj(X509_get_notBefore(x509), 0); // now!
-	X509_gmtime_adj(X509_get_notAfter(x509), 50 * 31536000L); // 99 years
-
-	X509_set_pubkey(x509, pkey);
-
-	X509_NAME * name;
-	name = X509_get_subject_name(x509);
-
-	X509_NAME_add_entry_by_txt(name, "ST",  MBSTRING_ASC, (unsigned char *)"Niedersachsen", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name, "L" ,  MBSTRING_ASC, (unsigned char *)"Hannover", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name, "OU",  MBSTRING_ASC, (unsigned char *)"IT", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name, "O" ,  MBSTRING_ASC, (unsigned char *)"Vahanus ", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name, "C" ,  MBSTRING_ASC, (unsigned char *)"DE", -1, -1, 0);
-
-	X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)subject, -1, -1, 0);
-
-	X509_set_issuer_name(x509, name);
-
-	/* Add various extensions: standard extensions */
-	C_add_ext(x509, NID_basic_constraints, "critical,CA:TRUE");
-	C_add_ext(x509, NID_key_usage, "critical,keyCertSign,cRLSign");
-
-	C_add_ext(x509, NID_subject_key_identifier, "hash");
-
-	/* Some Netscape specific extensions */
-	C_add_ext(x509, NID_netscape_cert_type, "sslCA");
-
-	C_add_ext(x509, NID_netscape_comment, "example comment extension");
-
-#if 1
-	/* Maybe even add our own extension based on existing */
-	{
-		int nid;
-		nid = OBJ_create("1.2.3.4", "MyAlias", "My Test Alias Extension");
-		X509V3_EXT_add_alias(nid, NID_netscape_comment);
-		C_add_ext(x509, nid, "example comment alias");
-	}
-#endif
-	X509_sign(x509, pkey, EVP_sha1());
-	return x509;
 }
 
 bool C_add_req_ext(STACK_OF(X509_EXTENSION) *sk, int nid, char* value)
@@ -217,7 +185,7 @@ X509_REQ* C_SSL_x509_make_csr(EVP_PKEY* pkey, char** domainNames, int domainName
 		sk_X509_EXTENSION_pop_free(extensions, &X509_EXTENSION_free);
 	}
 
-#if 1
+#if 0
 	STACK_OF(X509_EXTENSION) *exts = sk_X509_EXTENSION_new_null();
 
 	// # Extensions for client certificates (`man x509v3_config`).
@@ -261,5 +229,193 @@ ASN1_TIME * C_X509_get_notAfter(char* certPtr, int certLen)
 	ASN1_TIME * t = X509_get_notAfter(x509);
 	BIO_free(bio);
 	return t;
+}
+
+EVP_PKEY* C_SSL_x509_read_pkey_memory(char* pkeyString, RSA** rsaRef)
+{
+	EVP_PKEY* privateKey = EVP_PKEY_new();
+	BIO* bio = BIO_new_mem_buf(pkeyString, -1);
+	RSA* rsa = PEM_read_bio_RSAPrivateKey(bio, NULL, NULL, NULL);
+	assert(rsa != NULL);
+	// rsa will get freed when privateKey_ is freed
+	EVP_PKEY_assign_RSA(privateKey, rsa);
+	if (rsaRef) *rsaRef = rsa;
+	return privateKey;
+}
+
+BIO* C_convertDERtoPEM(const char* der, int der_length)
+{
+	/* Write DER to BIO buffer */
+	BIO* derBio = BIO_new(BIO_s_mem());
+	BIO_write(derBio, der, der_length);
+
+	/* Add conversion filter */
+	X509* x509 = d2i_X509_bio(derBio, NULL);
+
+	/* Write DER through filter to as PEM to other BIO buffer */
+	BIO* pemBio = BIO_new(BIO_s_mem());
+	PEM_write_bio_X509(pemBio, x509);
+
+	/* Output data as data string */
+	return pemBio;
+}
+
+int C_ASN1_TIME_diff(int *pday, int *psec, ASN1_TIME *from, ASN1_TIME *to)
+{
+	return ASN1_TIME_diff(pday, psec, from, to);
+}
+BIO* C_ASN1_TIME_print(const ASN1_TIME *s)
+{
+	BIO* b = BIO_new(BIO_s_mem());
+	assert ( ASN1_TIME_print(b, s) );
+	return b;
+}
+int C_BIO_free(BIO *a)
+{
+	return BIO_free(a);
+}
+void C_RSA_Get0_key(RSA*rsa, const BIGNUM** n, const BIGNUM** e, const BIGNUM** d)
+{
+	return RSA_get0_key(rsa, n, e, d);
+}
+
+size_t C_signDataWithSHA256(char* s, int slen, EVP_PKEY* privateKey, char*sig, int siglen)
+{
+	size_t signatureLength = 0;
+	EVP_MD_CTX* context = EVP_MD_CTX_new();
+	const EVP_MD * sha256 = EVP_get_digestbyname("SHA256");
+	if ( !sha256 ||
+		EVP_DigestInit_ex(context, sha256, NULL) != 1 ||
+		EVP_DigestSignInit(context, NULL, sha256, NULL, privateKey) != 1 ||
+		EVP_DigestSignUpdate(context, s, slen) != 1 ||
+		EVP_DigestSignFinal(context, NULL, &signatureLength) != 1)
+	{
+		return 0;
+	}
+
+	if (signatureLength > siglen ||
+	    EVP_DigestSignFinal(context, (unsigned char*)sig, &signatureLength) != 1)
+	{
+		return 0;
+	}
+	return signatureLength;
+}
+
+/** Get a CSR as PEM string */
+char* C_SSL_x509_get_PEM(X509_REQ* x509_req)
+{
+	BIO* bio = BIO_new(BIO_s_mem());
+	PEM_write_bio_X509_REQ(bio, x509_req);
+
+	BUF_MEM* mem;
+	BIO_get_mem_ptr(bio, &mem);
+	if (NULL == mem)  {
+		return NULL;
+	}
+	char* rs = strndup(mem->data, mem->length);
+	BIO_free(bio);
+	return rs;
+}
+
+/** Get a DER buffer */
+int C_SSL_x509_get_DER(X509_REQ* x509_req, void*b, int blen)
+{
+	int length = 0;
+	BIO* reqBio = BIO_new(BIO_s_mem());
+	if (i2d_X509_REQ_bio(reqBio, x509_req) < 0)	{
+		return 0;
+	}
+	BUF_MEM* mem;
+	BIO_get_mem_ptr(reqBio, &mem);
+	length =  mem->length;
+	assert(mem->length < blen);
+	memcpy(b, mem->data, mem->length);
+	BIO_free(reqBio);
+	return length;
+}
+
+int C_SSL_x509_write_pkey(char* path, EVP_PKEY * pkey)
+{
+	int rc = -1;
+	FILE * f;
+	if (path == NULL) path = "key.pem";
+	f = fopen(path, "wb");
+	if (f != NULL) {
+		rc = PEM_write_PrivateKey(
+		        f,                  /* write the key to the file we've opened */
+		        pkey,               /* our key from earlier */
+		        EVP_des_ede3_cbc(), /* default cipher for encrypting the key on disk */
+		        NULL,               /* passphrase required for decrypting the key on disk */
+		        0,                  /* length of the passphrase string */
+		        NULL,               /* callback for requesting a password */
+		        NULL                /* data to pass to the callback */
+		    );
+		fclose(f);
+	}
+	return rc;
+}
+
+EVP_PKEY * C_SSL_x509_read_pkey(char* path)
+{
+	EVP_PKEY * pkey;
+	pkey = EVP_PKEY_new();
+	FILE * f;
+	if (path == NULL) path = "key.pem";
+	f = fopen(path, "rb");
+	if (f != NULL) {
+		pkey = PEM_read_PrivateKey(
+		        f,                  /* read the key to the file we've opened */
+		        &pkey,              /* our key from earlier */
+		        NULL,               /* callback for requesting a password */
+		        NULL                /* data to pass to the callback */
+		    );
+		fclose(f);
+	}
+	return pkey;
+}
+
+char* C_openSSL_CreatePrivateKey(int bits)
+{
+	char* rs = NULL;
+
+	EVP_PKEY * pkey = C_SSL_x509_make_pkey(bits);
+	if (NULL == pkey) {
+		puts("Can't create a pKey");
+	} else {
+		BIO *bio = BIO_new(BIO_s_mem());
+		if (NULL == bio) {
+			puts("Can't create a BIO");
+		} else {
+			int rc = PEM_write_bio_PrivateKey(bio, pkey,
+				NULL,
+				NULL, 0,
+				NULL, NULL);
+			if (!rc) {
+				puts("Can't write pKEY to BIO");
+			} else {
+				BUF_MEM *mem;
+				BIO_get_mem_ptr(bio, &mem);
+				if (NULL == mem)  {
+					puts("Can't get pointer to BUF_MEM from BIO");
+				} else {
+					if (mem->data != NULL)
+						rs = strndup(mem->data, mem->length);
+					if (rs == NULL || strlen(rs)==0)  {
+						puts("Can't get data from BIO");
+					} else {
+						rs = rs;
+					}
+				}
+			}
+			BIO_free(bio);
+		}
+		EVP_PKEY_free(pkey);
+	}
+	return rs;
+}
+
+void C_EVP_PKEY_free(EVP_PKEY *pkey)
+{
+	EVP_PKEY_free(pkey);
 }
 

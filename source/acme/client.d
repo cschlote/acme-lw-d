@@ -14,12 +14,6 @@ import std.stdio;
 import std.string;
 import std.typecons;
 
-import deimos.openssl.asn1;
-import deimos.openssl.evp;
-import deimos.openssl.pem;
-import deimos.openssl.rsa;
-import deimos.openssl.x509v3;
-
 import acme;
 
 /** By default, we always use the staging and test server. */
@@ -146,12 +140,12 @@ unittest
 
 /* ------------------------------------------------------------------------ */
 
-/** Missing in D binding? */
-extern(C) int ASN1_TIME_diff(int *pday, int *psec, const ASN1_TIME *from, const ASN1_TIME *to);
 
 /** An openssl certificate */
 struct Certificate
 {
+	import acme.openssl_glues;
+
 	/** The full CA chain with cert */
 	string fullchain;
 	/** The private key to sign requests */
@@ -175,7 +169,7 @@ struct Certificate
 			// See this link for issues in converting from ASN1_TIME to epoch time.
 			// https://stackoverflow.com/questions/10975542/asn1-time-to-time-t-conversion
 			int days, seconds;
-			if (!ASN1_TIME_diff(&days, &seconds, null, t))
+			if (!C_ASN1_TIME_diff(&days, &seconds, cast(ASN1_TIME*)null, cast(ASN1_TIME*)t))
 			{
 				throw new AcmeException("Can't get time diff.");
 			}
@@ -203,12 +197,9 @@ struct Certificate
 	{
 		string extractor(const ASN1_TIME * t)
 		{
-			BIO* b = BIO_new(BIO_s_mem());
-			if (!ASN1_TIME_print(b, t))
-			{
-				throw new AcmeException("Can't print expiry time.");
-			}
-			return toString(b);
+			BIO* b = C_ASN1_TIME_print(t);
+			scope(exit) C_BIO_free(b);
+			return b.toVector.to!string;
 		}
 		return extractExpiryData!(string, extractor)(this.fullchain);
 	}
@@ -224,6 +215,7 @@ struct Certificate
 class AcmeClient
 {
 private:
+	import acme.openssl_glues;
 	EVP_PKEY*   privateKey_;     /// Copy of private key as ASC PEM
 
 	JSONValue   jwkData_;        /// JWK object as JSONValue tree
@@ -318,6 +310,7 @@ public:
 	 */
 	this(string accountPrivateKey, bool beVerbose = false)
 	{
+		import acme.openssl_glues;
 		beVerbose_ = beVerbose;
 
 		acmeRes.initClient( useStagingServer ? directoryUrlStaging : directoryUrlProd);
@@ -325,19 +318,25 @@ public:
 
 		/* Create the private key */
 		RSA* rsa;
-		privateKey_ = SSL_x509_read_pkey_memory(accountPrivateKey, &rsa);
+		privateKey_ = SSL_x509_read_pkey_memory( cast(const(char[]))accountPrivateKey, &rsa);
+
+		BIGNUM* n;
+		BIGNUM* e;
+		BIGNUM* d;
+		C_RSA_Get0_key(rsa, &n, &e, &d);
 
 		// https://tools.ietf.org/html/rfc7638
 		// JSON Web Key (JWK) Thumbprint
 		JSONValue jvJWK;
-		jvJWK["e"] = getBigNumberBytes(rsa.e).base64EncodeUrlSafe;
+		jvJWK["e"] = getBigNumberBytes(e).base64EncodeUrlSafe;
 		jvJWK["kty"] = "RSA";
-		jvJWK["n"] = getBigNumberBytes(rsa.n).base64EncodeUrlSafe;
+		jvJWK["n"] = getBigNumberBytes(n).base64EncodeUrlSafe;
 		jwkData_ = jvJWK;
 		jwkString_ = jvJWK.toJSON;
 		jwkSHAHash_ = sha256Encode( jwkString_ );
 		jwkThumbprint_ = jwkSHAHash_.base64EncodeUrlSafe.idup;
-		myLog("JWK:\n", jvJWK.toPrettyString);
+		//myLog("JWK:\n", jvJWK.toPrettyString);
+		myLog("JWK:\n", jvJWK.toJSON);
 		myLog("SHA of JWK:\n", jwkSHAHash_);
 		myLog("Thumbprint of JWK:\n", jwkThumbprint_);
 	}
