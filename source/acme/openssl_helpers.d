@@ -422,7 +422,7 @@ char[] SSL_x509_get_PEM(X509_REQ* x509_req)
 /** Get a CSR as base64url-encoded DER string */
 char[] SSL_x509_get_DER_as_B64URL(X509_REQ* x509_req)
 {
-	ubyte[1024] b;
+	ubyte[2048] b;
 	auto rc = C_SSL_x509_get_DER(x509_req, b.ptr, b.length.to!int);
 	char[] rs = base64EncodeUrlSafe(b[0..rc]);
 	return rs;

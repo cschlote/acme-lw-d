@@ -321,7 +321,8 @@ int C_SSL_x509_get_DER(X509_REQ* x509_req, void*b, int blen)
 	BUF_MEM* mem;
 	BIO_get_mem_ptr(reqBio, &mem);
 	length =  mem->length;
-	assert(mem->length < blen);
+	// printf("mem->length = %lx, blen = %x\n\n", mem->length, blen); fflush(stdout);
+	assert(mem->length <= blen);
 	memcpy(b, mem->data, mem->length);
 	BIO_free(reqBio);
 	return length;
