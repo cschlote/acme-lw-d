@@ -85,12 +85,37 @@ int stubSSL_BIO_gets(BIO *b, char *buf, int size)
 	return BIO_gets(b,buf,size);
 }
 
+int stubSSL_BIO_free(BIO *a)
+{
+	return BIO_free(a);
+}
+
+int stubSSL_BIO_read(BIO* bio, void* buffer, int buffer_length)
+{
+	return BIO_read(bio, buffer, buffer_length);
+}
+
+/* ASN access functions --------------------------------------------------- */
+
+int stubSSL_ASN1_TIME_diff(int *pday, int *psec, ASN1_TIME *from, ASN1_TIME *to)
+{
+	return ASN1_TIME_diff(pday, psec, from, to);
+}
+
+BIO* stubSSL_ASN1_TIME_print(const ASN1_TIME *s)
+{
+	BIO* b = BIO_new(BIO_s_mem());
+	assert ( ASN1_TIME_print(b, s) );
+	return b;
+}
+
+/* BIGNUM access functions ------------------------------------------------ */
+
 int stubSSL_BN_print(BIO *fp, const BIGNUM *a)
 {
 	return BN_print(fp, a);
 }
 
-/* Bytes of long number */
 int stubSSL_getBigNumberBytes(const BIGNUM* bn, void* buffer, int buffer_len)
 {
 	/* Get number of bytes to store a BIGNUM */
@@ -104,12 +129,27 @@ int stubSSL_getBigNumberBytes(const BIGNUM* bn, void* buffer, int buffer_len)
 	return numBytes;
 }
 
-int stubSSL_BIO_read(BIO* bio, void* buffer, int buffer_length)
+/* RSA access functions --------------------------------------------------- */
+
+void stubSSL_RSA_Get0_key(RSA*rsa, const BIGNUM** n, const BIGNUM** e, const BIGNUM** d)
 {
-	return BIO_read(bio, buffer, buffer_length);
+	RSA_get0_key(rsa, n, e, d);
 }
 
-/** Make a x509 pkey */
+/* EVP_PKEY access functions ---------------------------------------------- */
+
+EVP_PKEY* stubSSL_EVP_PKEY_readPkeyFromMemory(char* pkeyString, RSA** rsaRef)
+{
+	EVP_PKEY* privateKey = EVP_PKEY_new();
+	BIO* bio = BIO_new_mem_buf(pkeyString, -1);
+	RSA* rsa = PEM_read_bio_RSAPrivateKey(bio, NULL, NULL, NULL);
+	assert(rsa != NULL);
+	// rsa will get freed when privateKey_ is freed
+	EVP_PKEY_assign_RSA(privateKey, rsa);
+	if (rsaRef) *rsaRef = rsa;
+	return privateKey;
+}
+
 EVP_PKEY* stubSSL_EVP_PKEY_makePrivateKey(int bits)
 {
 	BIGNUM* e = BN_new();
@@ -131,7 +171,14 @@ EVP_PKEY* stubSSL_EVP_PKEY_makePrivateKey(int bits)
 	return pkey;
 }
 
-bool C_add_req_ext(STACK_OF(X509_EXTENSION) *sk, int nid, char* value)
+void stubSSL_EVP_PKEY_free(EVP_PKEY *pkey)
+{
+	EVP_PKEY_free(pkey);
+}
+
+/* X509_REQ access functions ---------------------------------------------- */
+
+bool stubSSL_addReqExt(STACK_OF(X509_EXTENSION) *sk, int nid, char* value)
 {
 	X509_EXTENSION *ex;
 	ex = X509V3_EXT_conf_nid(NULL, NULL, nid, value);
@@ -141,7 +188,6 @@ bool C_add_req_ext(STACK_OF(X509_EXTENSION) *sk, int nid, char* value)
 	return true;
 }
 
-/* Make a x509 CSR (cert signing request) */
 X509_REQ* stubSSL_X509_REQ_makeCSR(EVP_PKEY* pkey, char** domainNames, int domainNamesLength )
 {
 	char *cnStr = domainNames[0];
@@ -198,15 +244,15 @@ X509_REQ* stubSSL_X509_REQ_makeCSR(EVP_PKEY* pkey, char** domainNames, int domai
 	// extendedKeyUsage = clientAuth, emailProtection
 
 	/* Add various extensions: standard extensions */
-//	C_add_req_ext(exts, NID_basic_constraints, "CA:FALSE");
-//	C_add_req_ext(exts, NID_key_usage, "critical, nonRepudiation, digitalSignature, keyEncipherment");
-//	C_add_req_ext(exts, NID_ext_key_usage, "clientAuth, emailProtection");
-//	C_add_req_ext(exts, NID_subject_key_identifier, "hash");
-//	C_add_req_ext(exts, NID_authority_key_identifier, "keyid,issuer");
+//	stubSSL_addReqExt(exts, NID_basic_constraints, "CA:FALSE");
+//	stubSSL_addReqExt(exts, NID_key_usage, "critical, nonRepudiation, digitalSignature, keyEncipherment");
+//	stubSSL_addReqExt(exts, NID_ext_key_usage, "clientAuth, emailProtection");
+//	stubSSL_addReqExt(exts, NID_subject_key_identifier, "hash");
+//	stubSSL_addReqExt(exts, NID_authority_key_identifier, "keyid,issuer");
 
 	/* Some Netscape specific extensions */
-//	C_add_req_ext(exts, NID_netscape_cert_type, "client, email");
-	C_add_req_ext(exts, NID_netscape_comment, "OpenSSL Generated Client Certificate");
+//	stubSSL_addReqExt(exts, NID_netscape_cert_type, "client, email");
+	stubSSL_addReqExt(exts, NID_netscape_comment, "OpenSSL Generated Client Certificate");
 
 	X509_REQ_add_extensions(x509_req, exts);
 
@@ -218,90 +264,6 @@ X509_REQ* stubSSL_X509_REQ_makeCSR(EVP_PKEY* pkey, char** domainNames, int domai
 	return x509_req;
 }
 
-ASN1_TIME * stubSSL_X509_getNotAfter(const char* certPtr, int certLen)
-{
-	BIO* bio = BIO_new(BIO_s_mem());
-	if (BIO_write(bio, certPtr, certLen) <= 0)
-		return NULL;
-	X509* x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
-
-	ASN1_TIME * t = X509_get_notAfter(x509);
-	BIO_free(bio);
-	return t;
-}
-
-EVP_PKEY* stubSSL_EVP_PKEY_readPkeyFromMemory(char* pkeyString, RSA** rsaRef)
-{
-	EVP_PKEY* privateKey = EVP_PKEY_new();
-	BIO* bio = BIO_new_mem_buf(pkeyString, -1);
-	RSA* rsa = PEM_read_bio_RSAPrivateKey(bio, NULL, NULL, NULL);
-	assert(rsa != NULL);
-	// rsa will get freed when privateKey_ is freed
-	EVP_PKEY_assign_RSA(privateKey, rsa);
-	if (rsaRef) *rsaRef = rsa;
-	return privateKey;
-}
-
-BIO* stubSSL_convertDERtoPEM(const char* der, int der_length)
-{
-	/* Write DER to BIO buffer */
-	BIO* derBio = BIO_new(BIO_s_mem());
-	BIO_write(derBio, der, der_length);
-
-	/* Add conversion filter */
-	X509* x509 = d2i_X509_bio(derBio, NULL);
-
-	/* Write DER through filter to as PEM to other BIO buffer */
-	BIO* pemBio = BIO_new(BIO_s_mem());
-	PEM_write_bio_X509(pemBio, x509);
-
-	/* Output data as data string */
-	return pemBio;
-}
-
-int stubSSL_ASN1_TIME_diff(int *pday, int *psec, ASN1_TIME *from, ASN1_TIME *to)
-{
-	return ASN1_TIME_diff(pday, psec, from, to);
-}
-BIO* stubSSL_ASN1_TIME_print(const ASN1_TIME *s)
-{
-	BIO* b = BIO_new(BIO_s_mem());
-	assert ( ASN1_TIME_print(b, s) );
-	return b;
-}
-int stubSSL_BIO_free(BIO *a)
-{
-	return BIO_free(a);
-}
-
-void stubSSL_RSA_Get0_key(RSA*rsa, const BIGNUM** n, const BIGNUM** e, const BIGNUM** d)
-{
-	RSA_get0_key(rsa, n, e, d);
-}
-
-size_t stubSSL_signDataWithSHA256(char* s, int slen, EVP_PKEY* privateKey, char*sig, int siglen)
-{
-	size_t signatureLength = 0;
-	EVP_MD_CTX* context = EVP_MD_CTX_new();
-	const EVP_MD * sha256 = EVP_get_digestbyname("SHA256");
-	if ( !sha256 ||
-		EVP_DigestInit_ex(context, sha256, NULL) != 1 ||
-		EVP_DigestSignInit(context, NULL, sha256, NULL, privateKey) != 1 ||
-		EVP_DigestSignUpdate(context, s, slen) != 1 ||
-		EVP_DigestSignFinal(context, NULL, &signatureLength) != 1)
-	{
-		return 0;
-	}
-
-	if (signatureLength > siglen ||
-	    EVP_DigestSignFinal(context, (unsigned char*)sig, &signatureLength) != 1)
-	{
-		return 0;
-	}
-	return signatureLength;
-}
-
-/** Get a CSR as PEM string */
 char* stubSSL_X509_REQ_getAsPEM(X509_REQ* x509_req)
 {
 	BIO* bio = BIO_new(BIO_s_mem());
@@ -317,7 +279,6 @@ char* stubSSL_X509_REQ_getAsPEM(X509_REQ* x509_req)
 	return rs;
 }
 
-/** Get a DER buffer */
 int stubSSL_X509_REQ_getAsDER(X509_REQ* x509_req, void*b, int blen)
 {
 	int length = 0;
@@ -333,6 +294,41 @@ int stubSSL_X509_REQ_getAsDER(X509_REQ* x509_req, void*b, int blen)
 	memcpy(b, mem->data, mem->length);
 	BIO_free(reqBio);
 	return length;
+}
+
+/* X509 access functions -------------------------------------------------- */
+
+ASN1_TIME * stubSSL_X509_getNotAfter(const char* certPtr, int certLen)
+{
+	BIO* bio = BIO_new(BIO_s_mem());
+	if (BIO_write(bio, certPtr, certLen) <= 0)
+		return NULL;
+	X509* x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+
+	ASN1_TIME * t = X509_get_notAfter(x509);
+	BIO_free(bio);
+	return t;
+}
+
+/* Misc higher level functions (move to D module?) ------------------------ */
+
+EVP_PKEY * stubSSL_EVP_PKEY_readPrivateKey(char* path)
+{
+	EVP_PKEY * pkey;
+	pkey = EVP_PKEY_new();
+	FILE * f;
+	if (path == NULL) path = "key.pem";
+	f = fopen(path, "rb");
+	if (f != NULL) {
+		pkey = PEM_read_PrivateKey(
+		        f,                  /* read the key to the file we've opened */
+		        &pkey,              /* our key from earlier */
+		        NULL,               /* callback for requesting a password */
+		        NULL                /* data to pass to the callback */
+		    );
+		fclose(f);
+	}
+	return pkey;
 }
 
 int stubSSL_EVP_PKEY_writePrivateKey(char* path, EVP_PKEY * pkey)
@@ -356,23 +352,26 @@ int stubSSL_EVP_PKEY_writePrivateKey(char* path, EVP_PKEY * pkey)
 	return rc;
 }
 
-EVP_PKEY * stubSSL_EVP_PKEY_readPrivateKey(char* path)
+size_t stubSSL_signDataWithSHA256(char* s, int slen, EVP_PKEY* privateKey, char*sig, int siglen)
 {
-	EVP_PKEY * pkey;
-	pkey = EVP_PKEY_new();
-	FILE * f;
-	if (path == NULL) path = "key.pem";
-	f = fopen(path, "rb");
-	if (f != NULL) {
-		pkey = PEM_read_PrivateKey(
-		        f,                  /* read the key to the file we've opened */
-		        &pkey,              /* our key from earlier */
-		        NULL,               /* callback for requesting a password */
-		        NULL                /* data to pass to the callback */
-		    );
-		fclose(f);
+	size_t signatureLength = 0;
+	EVP_MD_CTX* context = EVP_MD_CTX_new();
+	const EVP_MD * sha256 = EVP_get_digestbyname("SHA256");
+	if ( !sha256 ||
+		EVP_DigestInit_ex(context, sha256, NULL) != 1 ||
+		EVP_DigestSignInit(context, NULL, sha256, NULL, privateKey) != 1 ||
+		EVP_DigestSignUpdate(context, s, slen) != 1 ||
+		EVP_DigestSignFinal(context, NULL, &signatureLength) != 1)
+	{
+		return 0;
 	}
-	return pkey;
+
+	if (signatureLength > siglen ||
+	    EVP_DigestSignFinal(context, (unsigned char*)sig, &signatureLength) != 1)
+	{
+		return 0;
+	}
+	return signatureLength;
 }
 
 char* stubSSL_createPrivateKey(int bits)
@@ -415,8 +414,20 @@ char* stubSSL_createPrivateKey(int bits)
 	return rs;
 }
 
-void stubSSL_EVP_PKEY_free(EVP_PKEY *pkey)
+BIO* stubSSL_convertDERtoPEM(const char* der, int der_length)
 {
-	EVP_PKEY_free(pkey);
+	/* Write DER to BIO buffer */
+	BIO* derBio = BIO_new(BIO_s_mem());
+	BIO_write(derBio, der, der_length);
+
+	/* Add conversion filter */
+	X509* x509 = d2i_X509_bio(derBio, NULL);
+
+	/* Write DER through filter to as PEM to other BIO buffer */
+	BIO* pemBio = BIO_new(BIO_s_mem());
+	PEM_write_bio_X509(pemBio, x509);
+
+	/* Output data as data string */
+	return pemBio;
 }
 
