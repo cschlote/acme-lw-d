@@ -166,13 +166,13 @@ struct Certificate
 	*/
 	DateTime getExpiry() const
 	{
-		import acme.openssl_glues : ASN1_TIME, C_ASN1_TIME_diff;
+		import acme.openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_diff;
 		static const(DateTime) extractor(const ASN1_TIME * t)
 		{
 			// See this link for issues in converting from ASN1_TIME to epoch time.
 			// https://stackoverflow.com/questions/10975542/asn1-time-to-time-t-conversion
 			int days, seconds;
-			if (!C_ASN1_TIME_diff(&days, &seconds, cast(ASN1_TIME*)null, cast(ASN1_TIME*)t))
+			if (!stubSSL_ASN1_TIME_diff(&days, &seconds, cast(ASN1_TIME*)null, cast(ASN1_TIME*)t))
 			{
 				throw new AcmeException("Can't get time diff.");
 			}
@@ -198,11 +198,11 @@ struct Certificate
 	*/
 	string getExpiryDisplay() const
 	{
-		import acme.openssl_glues : ASN1_TIME, C_ASN1_TIME_print, BIO, C_BIO_free;
+		import acme.openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_print, BIO, stubSSL_BIO_free;
 		string extractor(const ASN1_TIME * t)
 		{
-			BIO* b = C_ASN1_TIME_print(t);
-			scope(exit) C_BIO_free(b);
+			BIO* b = stubSSL_ASN1_TIME_print(t);
+			scope(exit) stubSSL_BIO_free(b);
 			return b.toVector.to!string;
 		}
 		return extractExpiryData!(string, extractor)(this.fullchain);
@@ -316,7 +316,7 @@ public:
 	 */
 	this(string accountPrivateKey, bool beVerbose = false)
 	{
-		import acme.openssl_glues : RSA, BIGNUM, C_RSA_Get0_key;
+		import acme.openssl_glues : RSA, BIGNUM, stubSSL_RSA_Get0_key;
 		beVerbose_ = beVerbose;
 
 		acmeRes.initClient( useStagingServer ? directoryUrlStaging : directoryUrlProd);
@@ -329,7 +329,7 @@ public:
 		BIGNUM* n;
 		BIGNUM* e;
 		BIGNUM* d;
-		C_RSA_Get0_key(rsa, &n, &e, &d);
+		stubSSL_RSA_Get0_key(rsa, &n, &e, &d);
 
 		// https://tools.ietf.org/html/rfc7638
 		// JSON Web Key (JWK) Thumbprint

@@ -1,33 +1,39 @@
 
 /* This is a stub C file to call OpenSSL
  *
- * This file is needed, because the OpenSSL bindings seem to
- * broken. At least it wasn't possible to get it working, and
+ * This file is needed, because the OpenSSL bindings seem to be  broken or
+ * outdated. At least it wasn't possible to get it working, and
  * a lot of time was wasted with the D binding.
  *
  * At the final end, this stub file was created in less than
  * a quarter hour. It surely matches the installed version of
- * OpenSSL on your system.
+ * OpenSSL on your system - it's in C and it uses the installed C header
+ * files.
  *
- * To put it into other, which even follow the D philosophie:
+ * To put it into other words, which even follow the D philosophie:
  * "There is no need to rewrite a well-written C, C++ or ObjC
  *  library. Just call that code."
  *
- * Unfortunatelly OpenSSL is an example, where the Header are
+ * Unfortunatelly OpenSSL is an example, where the headers are
  * very sophisticated work using lots of C prepro macros to do
  * fascinating things. Too bad, it's forming an own 'language'
  * that way, is hard to parse and understand - even for human
- * beings.
+ * beings. Manually maintaining a D-binding instead is very tedious work -
+ * and prone to errors of all kind.
  *
  * For such situations it might be more useful to write the
  * interface code in C using the headers as they are. Then
- * call the functions of your C wrapper from D.
+ * call the functions of your C wrapper from D. The prototypes to these C
+ * functions can be defined in D and called as needed.
  *
- * This approach saves a lot of time, can use examples from the
- * manual.
+ * This approach saves a lot of time: It can use examples from the
+ * OpenSSL manual, it can decode und use the headers directly and without
+ * any coversions, an finally als emits 'depricated' notes as rhe libssl
+ * API evolves over time.
  */
 
-/* C Runtime Includes - use C99 types */
+/* C Runtime Includes - use C99 types please for interfacing with D */
+
 #include <assert.h>
 #include <string.h>
 
@@ -36,7 +42,7 @@
 #include <stddef.h>
 
 /* Include the magic OpenSSL headerfiles as needed */
-#include <openssl/conf.h>
+
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
@@ -44,14 +50,15 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-/* Include our interface header to check against code below */
+/* Include our interface header to check protype against code below */
+
 #include "openssl_glues.h"
 
-/* Initialize SSL library */
-bool C_SSL_OpenLibrary(void)
+/* Library initialisation ------------------------------------------------- */
+
+void stubSSL_OpenLibrary(void)
 {
 	/* Load the human readable error strings for libcrypto */
-	//ERR_load_crypto_strings();  // OBSOLETE???
 	OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
 
 	/* Load all digest and cipher algorithms */
@@ -59,33 +66,32 @@ bool C_SSL_OpenLibrary(void)
 	OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS
                       | OPENSSL_INIT_ADD_ALL_DIGESTS
                       | OPENSSL_INIT_LOAD_CONFIG, NULL);
-	return true;
 }
 
-/* Teardown SSL library */
-void C_SSL_CloseLibrary(void)
+void stubSSL_CloseLibrary(void)
 {
 	OPENSSL_cleanup();
 }
 
-/* BIO Helpers */
-BIO* C_BIO_new_BIO_s_mem()
+/* BIO related functions -------------------------------------------------- */
+
+BIO* stubSSL_BIO_new_BIO_s_mem()
 {
 	return BIO_new(BIO_s_mem());
 }
 
-int C_BIO_gets(BIO *b, char *buf, int size)
+int stubSSL_BIO_gets(BIO *b, char *buf, int size)
 {
 	return BIO_gets(b,buf,size);
 }
 
-int C_BN_print(BIO *fp, const BIGNUM *a)
+int stubSSL_BN_print(BIO *fp, const BIGNUM *a)
 {
 	return BN_print(fp, a);
 }
 
 /* Bytes of long number */
-int C_getBigNumberBytes(const BIGNUM* bn, void* buffer, int buffer_len)
+int stubSSL_getBigNumberBytes(const BIGNUM* bn, void* buffer, int buffer_len)
 {
 	/* Get number of bytes to store a BIGNUM */
 	int numBytes = BN_num_bytes(bn);
@@ -98,13 +104,13 @@ int C_getBigNumberBytes(const BIGNUM* bn, void* buffer, int buffer_len)
 	return numBytes;
 }
 
-int C_BIO_read(BIO* bio, void* buffer, int buffer_length)
+int stubSSL_BIO_read(BIO* bio, void* buffer, int buffer_length)
 {
 	return BIO_read(bio, buffer, buffer_length);
 }
 
 /** Make a x509 pkey */
-EVP_PKEY* C_SSL_x509_make_pkey(int bits)
+EVP_PKEY* stubSSL_EVP_PKEY_makePrivateKey(int bits)
 {
 	BIGNUM* e = BN_new();
 	if (!BN_set_word(e, RSA_F4)) {
@@ -136,7 +142,7 @@ bool C_add_req_ext(STACK_OF(X509_EXTENSION) *sk, int nid, char* value)
 }
 
 /* Make a x509 CSR (cert signing request) */
-X509_REQ* C_SSL_x509_make_csr(EVP_PKEY* pkey, char** domainNames, int domainNamesLength )
+X509_REQ* stubSSL_X509_REQ_makeCSR(EVP_PKEY* pkey, char** domainNames, int domainNamesLength )
 {
 	char *cnStr = domainNames[0];
 
@@ -212,7 +218,7 @@ X509_REQ* C_SSL_x509_make_csr(EVP_PKEY* pkey, char** domainNames, int domainName
 	return x509_req;
 }
 
-ASN1_TIME * C_X509_get_notAfter(const char* certPtr, int certLen)
+ASN1_TIME * stubSSL_X509_getNotAfter(const char* certPtr, int certLen)
 {
 	BIO* bio = BIO_new(BIO_s_mem());
 	if (BIO_write(bio, certPtr, certLen) <= 0)
@@ -224,7 +230,7 @@ ASN1_TIME * C_X509_get_notAfter(const char* certPtr, int certLen)
 	return t;
 }
 
-EVP_PKEY* C_SSL_x509_read_pkey_memory(char* pkeyString, RSA** rsaRef)
+EVP_PKEY* stubSSL_EVP_PKEY_readPkeyFromMemory(char* pkeyString, RSA** rsaRef)
 {
 	EVP_PKEY* privateKey = EVP_PKEY_new();
 	BIO* bio = BIO_new_mem_buf(pkeyString, -1);
@@ -236,7 +242,7 @@ EVP_PKEY* C_SSL_x509_read_pkey_memory(char* pkeyString, RSA** rsaRef)
 	return privateKey;
 }
 
-BIO* C_convertDERtoPEM(const char* der, int der_length)
+BIO* stubSSL_convertDERtoPEM(const char* der, int der_length)
 {
 	/* Write DER to BIO buffer */
 	BIO* derBio = BIO_new(BIO_s_mem());
@@ -253,26 +259,27 @@ BIO* C_convertDERtoPEM(const char* der, int der_length)
 	return pemBio;
 }
 
-int C_ASN1_TIME_diff(int *pday, int *psec, ASN1_TIME *from, ASN1_TIME *to)
+int stubSSL_ASN1_TIME_diff(int *pday, int *psec, ASN1_TIME *from, ASN1_TIME *to)
 {
 	return ASN1_TIME_diff(pday, psec, from, to);
 }
-BIO* C_ASN1_TIME_print(const ASN1_TIME *s)
+BIO* stubSSL_ASN1_TIME_print(const ASN1_TIME *s)
 {
 	BIO* b = BIO_new(BIO_s_mem());
 	assert ( ASN1_TIME_print(b, s) );
 	return b;
 }
-int C_BIO_free(BIO *a)
+int stubSSL_BIO_free(BIO *a)
 {
 	return BIO_free(a);
 }
-void C_RSA_Get0_key(RSA*rsa, const BIGNUM** n, const BIGNUM** e, const BIGNUM** d)
+
+void stubSSL_RSA_Get0_key(RSA*rsa, const BIGNUM** n, const BIGNUM** e, const BIGNUM** d)
 {
-	return RSA_get0_key(rsa, n, e, d);
+	RSA_get0_key(rsa, n, e, d);
 }
 
-size_t C_signDataWithSHA256(char* s, int slen, EVP_PKEY* privateKey, char*sig, int siglen)
+size_t stubSSL_signDataWithSHA256(char* s, int slen, EVP_PKEY* privateKey, char*sig, int siglen)
 {
 	size_t signatureLength = 0;
 	EVP_MD_CTX* context = EVP_MD_CTX_new();
@@ -295,7 +302,7 @@ size_t C_signDataWithSHA256(char* s, int slen, EVP_PKEY* privateKey, char*sig, i
 }
 
 /** Get a CSR as PEM string */
-char* C_SSL_x509_get_PEM(X509_REQ* x509_req)
+char* stubSSL_X509_REQ_getAsPEM(X509_REQ* x509_req)
 {
 	BIO* bio = BIO_new(BIO_s_mem());
 	PEM_write_bio_X509_REQ(bio, x509_req);
@@ -311,7 +318,7 @@ char* C_SSL_x509_get_PEM(X509_REQ* x509_req)
 }
 
 /** Get a DER buffer */
-int C_SSL_x509_get_DER(X509_REQ* x509_req, void*b, int blen)
+int stubSSL_X509_REQ_getAsDER(X509_REQ* x509_req, void*b, int blen)
 {
 	int length = 0;
 	BIO* reqBio = BIO_new(BIO_s_mem());
@@ -328,7 +335,7 @@ int C_SSL_x509_get_DER(X509_REQ* x509_req, void*b, int blen)
 	return length;
 }
 
-int C_SSL_x509_write_pkey(char* path, EVP_PKEY * pkey)
+int stubSSL_EVP_PKEY_writePrivateKey(char* path, EVP_PKEY * pkey)
 {
 	int rc = -1;
 	FILE * f;
@@ -349,7 +356,7 @@ int C_SSL_x509_write_pkey(char* path, EVP_PKEY * pkey)
 	return rc;
 }
 
-EVP_PKEY * C_SSL_x509_read_pkey(char* path)
+EVP_PKEY * stubSSL_EVP_PKEY_readPrivateKey(char* path)
 {
 	EVP_PKEY * pkey;
 	pkey = EVP_PKEY_new();
@@ -368,11 +375,11 @@ EVP_PKEY * C_SSL_x509_read_pkey(char* path)
 	return pkey;
 }
 
-char* C_openSSL_CreatePrivateKey(int bits)
+char* stubSSL_createPrivateKey(int bits)
 {
 	char* rs = NULL;
 
-	EVP_PKEY * pkey = C_SSL_x509_make_pkey(bits);
+	EVP_PKEY * pkey = stubSSL_EVP_PKEY_makePrivateKey(bits);
 	if (NULL == pkey) {
 		puts("Can't create a pKey");
 	} else {
@@ -408,7 +415,7 @@ char* C_openSSL_CreatePrivateKey(int bits)
 	return rs;
 }
 
-void C_EVP_PKEY_free(EVP_PKEY *pkey)
+void stubSSL_EVP_PKEY_free(EVP_PKEY *pkey)
 {
 	EVP_PKEY_free(pkey);
 }

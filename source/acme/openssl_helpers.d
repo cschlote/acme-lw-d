@@ -31,11 +31,11 @@ import acme.exception;
  */
 string getBigNumber(BIGNUM* bn)
 {
-	BIO * bio = C_BIO_new_BIO_s_mem();
-	scope(exit) C_BIO_free(bio);
-	C_BN_print(bio, bn);
+	BIO * bio = stubSSL_BIO_new_BIO_s_mem();
+	scope(exit) stubSSL_BIO_free(bio);
+	stubSSL_BN_print(bio, bn);
 	char[2048] buffer;
-	auto rc = C_BIO_gets(bio, buffer.ptr, buffer.length);
+	auto rc = stubSSL_BIO_gets(bio, buffer.ptr, buffer.length);
 	auto num = buffer[0..rc].to!string;
 	return num;
 }
@@ -51,7 +51,7 @@ ubyte[] getBigNumberBytes(const BIGNUM* bn)
 {
 	/* Get number of bytes to store a BIGNUM */
 	ubyte[2048] buffer;
-	auto numBytes = C_getBigNumberBytes(bn, cast(void*)buffer.ptr, buffer.length);
+	auto numBytes = stubSSL_getBigNumberBytes(bn, cast(void*)buffer.ptr, buffer.length);
 	return buffer[0..numBytes].dup;
 }
 
@@ -74,7 +74,7 @@ char[] toVector(BIO * bio)
 	int count = 0;
 	do
 	{
-		count = C_BIO_read(bio, buffer.ptr, buffer.length);
+		count = stubSSL_BIO_read(bio, buffer.ptr, buffer.length);
 		if (count > 0)
 		{
 			rc ~= buffer[0..count];
@@ -169,7 +169,7 @@ auto sha256Encode(const char[] s)
  */
 string convertDERtoPEM(const char[] der)
 {
-	BIO* pemBio = C_convertDERtoPEM(der.ptr, der.length.to!int);
+	BIO* pemBio = stubSSL_convertDERtoPEM(der.ptr, der.length.to!int);
 	/* Output data as data string */
 	return cast(string)(toVector(pemBio));
 }
@@ -182,7 +182,7 @@ string convertDERtoPEM(const char[] der)
  */
 T extractExpiryData(T, alias extractor)(const(char[]) cert)
 {
-	ASN1_TIME * t = C_X509_get_notAfter(cert.ptr, cert.length.to!int);
+	ASN1_TIME * t = stubSSL_X509_getNotAfter(cert.ptr, cert.length.to!int);
 	T rc = extractor(t);
 	return rc;
 }
@@ -202,7 +202,7 @@ T extractExpiryData(T, alias extractor)(const(char[]) cert)
 char[] signDataWithSHA256(char[] s, EVP_PKEY* privateKey)
 {
 	char[1024] sig;
-	auto rc = C_signDataWithSHA256(s.ptr, s.length.to!int, privateKey, sig.ptr, sig.length.to!int);
+	auto rc = stubSSL_signDataWithSHA256(s.ptr, s.length.to!int, privateKey, sig.ptr, sig.length.to!int);
 	if (rc == 0)
 	{
 		throw new AcmeException("Error creating SHA256 digest in final signature");
@@ -385,19 +385,19 @@ else
 	import acme.openssl_glues;
 
 	/** Initialize library */
-	bool SSL_OpenLibrary()
+	void SSL_OpenLibrary()
 	{
-		return C_SSL_OpenLibrary();
+		stubSSL_OpenLibrary();
 	}
 	/** Close library */
 	void SSL_CloseLibrary()
 	{
-		C_SSL_CloseLibrary();
+		stubSSL_CloseLibrary();
 	}
 	/** Make a private key */
 	EVP_PKEY* SSL_x509_make_pkey(int bits)
 	{
-		return C_SSL_x509_make_pkey(bits);
+		return stubSSL_EVP_PKEY_makePrivateKey(bits);
 	}
 	/** Make a CSR */
 	X509_REQ* SSL_x509_make_csr(EVP_PKEY* pkey, string[] domainNames)
@@ -405,7 +405,7 @@ else
 		char*[] C_domainNames;
 		C_domainNames.length =  domainNames.length;
 		foreach(i, ref v; domainNames) C_domainNames[i] = cast(char*)v.toStringz;
-		return C_SSL_x509_make_csr(pkey, cast(char**)(C_domainNames.ptr), domainNames.length.to!int);
+		return stubSSL_X509_REQ_makeCSR(pkey, cast(char**)(C_domainNames.ptr), domainNames.length.to!int);
 	}
 }
 
@@ -414,7 +414,7 @@ else
 /** Get a CSR as PEM string */
 char[] SSL_x509_get_PEM(X509_REQ* x509_req)
 {
-	char* rs = C_SSL_x509_get_PEM(x509_req);
+	char* rs = stubSSL_X509_REQ_getAsPEM(x509_req);
 	import std.string : fromStringz;
 	return rs.fromStringz;
 }
@@ -423,7 +423,7 @@ char[] SSL_x509_get_PEM(X509_REQ* x509_req)
 char[] SSL_x509_get_DER_as_B64URL(X509_REQ* x509_req)
 {
 	ubyte[2048] b;
-	auto rc = C_SSL_x509_get_DER(x509_req, b.ptr, b.length.to!int);
+	auto rc = stubSSL_X509_REQ_getAsDER(x509_req, b.ptr, b.length.to!int);
 	char[] rs = base64EncodeUrlSafe(b[0..rc]);
 	return rs;
 }
@@ -433,7 +433,7 @@ char[] SSL_x509_get_DER_as_B64URL(X509_REQ* x509_req)
 EVP_PKEY* SSL_x509_read_pkey_memory(const char[] pkeyString, RSA** rsaRef)
 {
 	auto cstr = cast(char*)pkeyString.toStringz;
-	return C_SSL_x509_read_pkey_memory(cstr, rsaRef);
+	return stubSSL_EVP_PKEY_readPkeyFromMemory(cstr, rsaRef);
 }
 
 /** Save a x509 pkey to a file
@@ -444,7 +444,7 @@ EVP_PKEY* SSL_x509_read_pkey_memory(const char[] pkeyString, RSA** rsaRef)
  */
 int SSL_x509_write_pkey(char[] path, EVP_PKEY * pkey)
 {
-	return C_SSL_x509_write_pkey( cast(char*)(path.toStringz), pkey);
+	return stubSSL_EVP_PKEY_writePrivateKey( cast(char*)(path.toStringz), pkey);
 }
 
 /** Read a x509 pkey from a file
@@ -454,7 +454,7 @@ int SSL_x509_write_pkey(char[] path, EVP_PKEY * pkey)
  */
 EVP_PKEY * SSL_x509_read_pkey(char[] path)
 {
-	return C_SSL_x509_read_pkey(cast(char*)(path.toStringz));
+	return stubSSL_EVP_PKEY_readPrivateKey(cast(char*)(path.toStringz));
 }
 
 
@@ -473,7 +473,7 @@ char[] openSSL_CreatePrivateKey(int bits = 4096)
 	//import std.stdio;
 	//writeln("Create a SSL pKey.");
 	char[] rs;
-	char* cs = C_openSSL_CreatePrivateKey(bits);
+	char* cs = stubSSL_createPrivateKey(bits);
 	rs = cs.fromStringz;
 	return rs;
 }
@@ -529,7 +529,7 @@ char[] openSSL_CreateCertificateSignRequest(const char[] prkey, string[] domainN
 
 	/* Convert to DER with base64url-encoded data */
 	auto rs = SSL_x509_get_DER_as_B64URL(x509_req);
-	C_EVP_PKEY_free(pkey);
+	stubSSL_EVP_PKEY_free(pkey);
 	return rs;
 }
 unittest {
