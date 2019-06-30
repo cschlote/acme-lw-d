@@ -68,7 +68,6 @@ The command line client is run as follows:
 
 ```
 $ ./acme-lw-d
-THIS IS ALPHA SOFTWARE. Running against staging environment!
 Usage: acme_client <options>
 -k            --key Required: The path to private key of ACME account. (PEM file)
 -p      --domainkey Required: The path to your private key for X509 certificates (PEM file)
@@ -79,6 +78,7 @@ Usage: acme_client <options>
 -b           --bits           RSA bits to use for keys. Used on new key creation
 -y          --agree           Agree to TermsOfService, when creating the account.
 -s        --staging           Use the staging server for initial testing or developing
+           --server           Alternate ACME server directory url
 -v        --verbose           Verbose output
 -h           --help           This help information.
 
@@ -118,7 +118,5 @@ Optional:
 * Implement 7.4.1.  Pre-authorization
 
 Nice to have:
-* Create a new SSL private/public key pair in program, if not existent and allowed by cmdline arg.
-  It avoids the use of the openssl command client (see above). Should create only supported keys.
 * Split code into a library package and an optional CLI client, which uses the library package.
 
