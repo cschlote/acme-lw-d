@@ -225,9 +225,9 @@ X509_REQ* stubSSL_X509_REQ_makeCSR(EVP_PKEY* pkey, char** domainNames, int domai
 			strncat(buffer,domainNames[i], sizeof(buffer));
 
 			X509_EXTENSION *nid = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, buffer);
-			assert(!sk_X509_EXTENSION_push(extensions, nid));
+			assert(sk_X509_EXTENSION_push(extensions, nid));
 		}
-		assert (X509_REQ_add_extensions(x509_req, extensions) != 1);
+		assert (X509_REQ_add_extensions(x509_req, extensions));
 		sk_X509_EXTENSION_pop_free(extensions, &X509_EXTENSION_free);
 	}
 
