@@ -524,8 +524,10 @@ char[] openSSL_CreateCertificateSignRequest(const char[] prkey, string[] domainN
 	X509_REQ* x509_req = SSL_x509_make_csr(pkey, domainNames);
 	assert (x509_req !is null, "Returned empty cert req.");
 
-//	/* Convert to PEM string */
-//	auto rs = SSL_x509_get_PEM(x509_req);
+	/* Convert to PEM string */
+	auto pemStr = SSL_x509_get_PEM(x509_req);
+	import std.stdio : writeln;
+	writeln("CSR(PEM):", pemStr);
 
 	/* Convert to DER with base64url-encoded data */
 	auto rs = SSL_x509_get_DER_as_B64URL(x509_req);
