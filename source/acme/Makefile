@@ -19,6 +19,7 @@ openssl_glues.di : openssl_glues.h Makefile
 	@echo "Create DI file : openssl_glues.di"
 	@echo "/* DI file to call openssl_glues.c code */" > openssl_glues.di
 	@echo "module acme.openssl_glues;" >> openssl_glues.di
+	@echo "import core.stdc.time;" >> openssl_glues.di
 	@echo "extern(C) :" >> openssl_glues.di
 	@cat $< | sed -e 's/(void)/()/g' >> openssl_glues.di
 

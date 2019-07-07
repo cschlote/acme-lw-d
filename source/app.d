@@ -34,6 +34,7 @@ enum ArgRSABitsEnum {
 }
 ArgRSABitsEnum argRSABits;   /// Select the number of bit by the enum name
 bool argVerbose;             /// Verbosity mode?
+bool argForceUpdate;         /// Force Cert update
 bool argUseStaging;          /// Use staging server
 bool argTosAgree;            /// Agree to Terms of Service
 
@@ -105,6 +106,7 @@ int main(string[] args)
 		"agree|y",   "Agree to TermsOfService, when creating the account.", &argTosAgree,
 		"staging|s", "Use the staging server for initial testing or developing", &argUseStaging,
 		"server",    "Alternate ACME server directory url", &argServerUrl,
+		"force|f",   "Force certificate update", &argForceUpdate,
 		"verbose|v", "Verbose output", &argVerbose);
 	if (helpInformation.helpWanted)
 	{
@@ -150,6 +152,30 @@ int main(string[] args)
 		if (argVerbose) writeln("Created private key for ACME account.");
 	}
 
+	/* -- Test for existing certificat, test remaining lifetime ---------- */
+
+	if (argOutputFile.exists && argOutputFile.isFile)
+	{
+		bool updateCert;
+		writefln("Files '%s' and '%s' have been read.", argOutputFile, argDomainKeyFile);
+		auto certificatePEM = std.file.readText(argOutputFile);
+		Certificate certificate = Certificate(certificatePEM, domainKeyData);
+		import std.datetime : DateTime, SysTime, Clock, dur;
+		auto expdate = certificate.getExpiry();
+		writeln("Certificate expires on " ~ expdate.toSimpleString);
+		SysTime today = Clock.currTime();
+		if (!argForceUpdate && cast(DateTime)today < (expdate - dur!"weeks"(4)) )
+		{
+			writeln("No need to update the certificate. Use --force flag.");
+		}
+		else {
+			writefln("%s to update the certificate.", argForceUpdate ? "Forced" : "Need");
+			updateCert = true;
+		}
+		if (!argForceUpdate)
+			return 0;
+	}
+
 	/* -- ACME V2 process starts below ----------------------------------- */
 
 	int exitStatus = -1;
@@ -164,8 +190,8 @@ int main(string[] args)
 			acmeClient.acmeRes.directoryUrl = argServerUrl;
 
 		acmeClient.setupClient();
+		writeln( "URL for ACME directory : ", acmeClient.acmeRes.directoryUrl);
 		if (argVerbose) {
-			writeln( "URL for ACME directory : ", acmeClient.acmeRes.directoryUrl);
 			writeln( acmeClient.acmeRes.directoryJson.toPrettyString() );
 		}
 		/* --- Create a new account/Use existing account  ----------------- */

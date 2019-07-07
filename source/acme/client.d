@@ -169,18 +169,12 @@ struct Certificate
 		import acme.openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_diff;
 		static const(DateTime) extractor(const ASN1_TIME * t)
 		{
-			// See this link for issues in converting from ASN1_TIME to epoch time.
-			// https://stackoverflow.com/questions/10975542/asn1-time-to-time-t-conversion
-			int days, seconds;
-			if (!stubSSL_ASN1_TIME_diff(&days, &seconds, cast(ASN1_TIME*)null, cast(ASN1_TIME*)t))
-			{
-				throw new AcmeException("Can't get time diff.");
-			}
-			// Hackery here, since the call to time(0) will not necessarily match
-			// the equivilent call openssl just made in the 'diff' call above.
-			// Nonetheless, it'll be close at worst.
-			auto dt = DateTime( Date(0) );
-			dt += dur!"seconds"(seconds + days * 3600 * 24);
+			import acme.openssl_glues;
+			import core.stdc.time;
+			time_t unixTime = ASN1_GetTimeT(t);
+			auto stdTime = unixTimeToStdTime(unixTime);
+			auto st = SysTime(stdTime);
+			auto dt = cast(DateTime)st;
 			return dt;
 		}
 		DateTime rc = extractExpiryData!(DateTime, extractor)(this.fullchain);

@@ -29,6 +29,8 @@ struct ASN1_TIME;
 int stubSSL_ASN1_TIME_diff(int *pday, int *psec, ASN1_TIME *from, ASN1_TIME *to);
 /** Print human readable */
 BIO* stubSSL_ASN1_TIME_print(const ASN1_TIME *s);
+/** Get time as time_t structure */
+time_t ASN1_GetTimeT(ASN1_TIME* time);
 
 /* BIGNUM access functions ------------------------------------------------ */
 
