@@ -41,6 +41,15 @@ test-program:
   - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
   - dub test
 
+test-arm:
+  tags:
+  - arm-gitlabshell
+  - docker
+  stage: build
+  script:
+  - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+  - dub test
+
 deploy-program:
   tags:
   - gitlabshell
