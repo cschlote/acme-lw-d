@@ -28,7 +28,7 @@
  *
  * This approach saves a lot of time: It can use examples from the
  * OpenSSL manual, it can decode und use the headers directly and without
- * any coversions, an finally als emits 'depricated' notes as rhe libssl
+ * any coversions, an finally also emits 'depricated' notes as rhe libssl
  * API evolves over time.
  */
 
