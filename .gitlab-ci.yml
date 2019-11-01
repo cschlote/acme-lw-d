@@ -75,5 +75,5 @@ deploy-program:
     - docker
   stage: deploy
   script:
-    -
+    - echo "Deploy!"
   when: manual
