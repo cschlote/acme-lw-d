@@ -1,70 +1,79 @@
 
+# Doesn't work due to CA cert issue...
 #image: docker.vahanus.com/ubuntu-dlang-dev:latest
 
 variables:
   GIT_SUBMODULE_STRATEGY: normal
 
 before_script:
+  - echo "Working on $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
   - if command -v docker ; then echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin docker.vahanus.com ; fi
 
 stages:
-- lint
-- build
-- deploy
+  - lint
+  - build
+  - deploy
+
+#----------------------------------------------------------------------
 
 lint-program:
   tags:
-  - gitlabshell
-  - docker
+    - gitlabshell
+    - docker
   stage: lint
   script:
-  - echo "linting $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-  - dub fetch dscanner
-  - dub run dscanner -- --report source
+    - echo "linting $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+    - dub fetch dscanner
+    - dub run dscanner -- --report source
+
+#----------------------------------------------------------------------
 
 build-program:
   tags:
-  - gitlabshell
-  - docker
+    - gitlabshell
+    - docker
   stage: build
   script:
-  - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-  - dub build
-  - dub build -b ddox
+    - dub build
+    - dub build -b ddox
 
 test-program:
   tags:
-  - gitlabshell
-  - docker
+    - gitlabshell
+    - docker
   stage: build
   script:
-  - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-  - dub test
+    - dub test
+
+#----------------------------------------------------------------------
 
 test-arm-gitlabshell:
   tags:
-  - arm-gitlabshell
-  - docker
+    - arm-gitlabshell
+    - docker
   stage: build
   script:
-  - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-  - docker pull arm64v8/alpine:latest
-  - docker images
+    - docker pull arm64v8/alpine:latest
+    - docker run arm64v8/alpine:latest ls -R /
+    - docker images
+    - echo "Running within an Alpine Container on ARM !"
 
 test-arm-gitlabdocker:
   image: arm64v8/alpine:latest
   tags:
-  - arm-gitlabdocker
+    - arm-gitlabdocker
   stage: build
   script:
-  - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-  - ls /
+    - ls -R /
+    - echo "Running within an Alpine Container on ARM !"
+
+#----------------------------------------------------------------------
 
 deploy-program:
   tags:
-  - gitlabshell
-  - docker
+    - gitlabshell
+    - docker
   stage: deploy
   script:
-  - echo "cleaning $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+    -
   when: manual
