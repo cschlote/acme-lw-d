@@ -55,8 +55,10 @@ test-arm-gitlabshell:
   script:
     - docker pull arm64v8/alpine:latest
     - docker run arm64v8/alpine:latest ls -R /
+    - docker pull arm64v8/ubuntu:18.04
+    - docker run arm64v8/ubuntu:18.04 ls -R /
     - docker images
-    - echo "Running within an Alpine Container on ARM !"
+    - echo "Running in SHELL on ARM !"
 
 test-arm-gitlabdocker:
   image: arm64v8/alpine:latest
