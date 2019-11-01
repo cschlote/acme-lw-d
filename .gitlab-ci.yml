@@ -5,7 +5,7 @@ variables:
   GIT_SUBMODULE_STRATEGY: normal
 
 before_script:
-  - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin docker.vahanus.com
+  - if command -v docker ; then echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin docker.vahanus.com ; fi
 
 stages:
 - lint
