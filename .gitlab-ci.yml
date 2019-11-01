@@ -41,14 +41,24 @@ test-program:
   - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
   - dub test
 
-test-arm:
+test-arm-gitlabshell:
   tags:
   - arm-gitlabshell
   - docker
   stage: build
   script:
   - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-  - dub test
+  - docker pull arm64v8/alpine:latest
+  - docker images
+
+test-arm-gitlabdocker:
+  image: arm64v8/alpine:latest
+  tags:
+  - arm-gitlabdocker
+  stage: build
+  script:
+  - echo "building $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+  - ls /
 
 deploy-program:
   tags:
