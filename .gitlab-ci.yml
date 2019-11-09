@@ -47,24 +47,54 @@ test-program:
 
 #----------------------------------------------------------------------
 
-test-arm-gitlabshell:
+test-arm64v8-gitlabshell:
   tags:
     - arm-gitlabshell
     - docker
   stage: build
+  allow_failure: true
   script:
     - docker pull arm64v8/alpine:latest
     - docker run arm64v8/alpine:latest ls -R /
     - docker pull arm64v8/ubuntu:18.04
     - docker run arm64v8/ubuntu:18.04 ls -R /
+    - docker pull arm64v8/debian:latest
+    - docker run arm64v8/debian:latest ls -R /
     - docker images
     - echo "Running in SHELL on ARM !"
 
-test-arm-gitlabdocker:
+test-arm64v8-gitlabdocker:
   image: arm64v8/alpine:latest
   tags:
     - arm-gitlabdocker
   stage: build
+  allow_failure: true
+  script:
+    - ls -R /
+    - echo "Running within an Alpine Container on ARM !"
+
+test-arm32v7-gitlabshell:
+  tags:
+    - arm-gitlabshell
+    - docker
+  stage: build
+  allow_failure: true
+  script:
+    - docker pull arm32v7/alpine:latest
+    - docker run arm32v7/alpine:latest ls -R /
+    - docker pull arm32v7/ubuntu:18.04
+    - docker run arm32v7/ubuntu:18.04 ls -R /
+    - docker pull arm32v7/debian:latest
+    - docker run arm32v7/debian:latest ls -R /
+    - docker images
+    - echo "Running in SHELL on ARM !"
+
+test-arm32v7-gitlabdocker:
+  image: arm32v7/alpine:latest
+  tags:
+    - arm-gitlabdocker
+  stage: build
+  allow_failure: true
   script:
     - ls -R /
     - echo "Running within an Alpine Container on ARM !"
