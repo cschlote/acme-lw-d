@@ -12,6 +12,8 @@ before_script:
 stages:
   - lint
   - build
+  - test
+  - docs
   - deploy
 
 #----------------------------------------------------------------------
@@ -28,7 +30,7 @@ lint-program:
 
 #----------------------------------------------------------------------
 
-build-program:
+build-program-x86:
   tags:
     - gitlabshell
     - docker
@@ -37,13 +39,42 @@ build-program:
     - dub build
     - dub build -b ddox
 
-test-program:
+build-program-arm:
   tags:
-    - gitlabshell
+    - arm-gitlabshell
     - docker
   stage: build
   script:
+    - dub build
+    - dub build -b ddox
+
+#----------------------------------------------------------------------
+
+test program-x86:
+  tags:
+    - gitlabshell
+    - docker
+  stage: test
+  script:
     - dub test
+
+test program-arm:
+  tags:
+    - arm-gitlabshell
+    - docker
+  stage: test
+  script:
+    - dub test
+
+#----------------------------------------------------------------------
+
+build docs:
+  tags:
+    - gitlabshell
+    - docker
+  stage: test
+  script:
+    - dub build -b ddox
 
 #----------------------------------------------------------------------
 
