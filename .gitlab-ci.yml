@@ -12,8 +12,8 @@ before_script:
 stages:
   - lint
   - build
-  - test
   - docs
+  - test
   - deploy
 
 #----------------------------------------------------------------------
@@ -72,7 +72,7 @@ build docs:
   tags:
     - gitlabshell
     - docker
-  stage: test
+  stage: docs
   script:
     - dub build -b ddox
 
@@ -82,7 +82,7 @@ test-arm64v8-gitlabshell:
   tags:
     - arm-gitlabshell
     - docker
-  stage: build
+  stage: test
   allow_failure: true
   script:
     - docker pull arm64v8/alpine:latest
@@ -98,7 +98,7 @@ test-arm64v8-gitlabdocker:
   image: arm64v8/alpine:latest
   tags:
     - arm-gitlabdocker
-  stage: build
+  stage: test
   allow_failure: true
   script:
     - ls -R /
@@ -108,7 +108,7 @@ test-arm32v7-gitlabshell:
   tags:
     - arm-gitlabshell
     - docker
-  stage: build
+  stage: test
   allow_failure: true
   script:
     - docker pull arm32v7/alpine:latest
@@ -124,7 +124,7 @@ test-arm32v7-gitlabdocker:
   image: arm32v7/alpine:latest
   tags:
     - arm-gitlabdocker
-  stage: build
+  stage: test
   allow_failure: true
   script:
     - ls -R /
