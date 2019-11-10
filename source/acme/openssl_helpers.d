@@ -496,7 +496,7 @@ unittest {
 		const char[] tmp = openSSL_CreatePrivateKey();
 		assert(tmp !is null && !tmp.empty, "Empty private key.");
 	}
-	enum benchloops = 20 ;
+	enum benchloops = 5 ;
 	auto dur = benchmark!(benchCreateKeyStub)(benchloops);
 	writeln("Benchmarking ", benchloops," calls, duration ", dur[0] / benchloops );
 	stdout.flush;
