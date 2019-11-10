@@ -86,7 +86,7 @@ struct AcmeResources
 		}
 		catch (Exception e)
 		{
-			string msg = "Unable to initialize resource url from " ~ this.directoryUrl ~ ": " ~ e.msg;
+			string msg = "Unable to initialize resource url from " ~ this.directoryUrl ~ ": (" ~ typeof(e).stringof ~ ")" ~ e.msg;
 			throw new AcmeException(msg, __FILE__, __LINE__, e );
 		}
 	}
