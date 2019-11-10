@@ -256,8 +256,8 @@ X509_REQ* stubSSL_X509_REQ_makeCSR(EVP_PKEY* pkey, char** domainNames, int domai
 		for (int i = 0; i < domainNamesLength; i++)
 		{
 			char buffer[512]; memset(buffer, 0, sizeof(buffer));
-			strncat(buffer,"DNS:", sizeof(buffer));
-			strncat(buffer,domainNames[i], sizeof(buffer));
+			strncat(buffer,"DNS:", sizeof(buffer)-1);
+			strncat(buffer,domainNames[i], sizeof(buffer)-1);
 
 			X509_EXTENSION *nid = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, buffer);
 			assert(sk_X509_EXTENSION_push(extensions, nid));
