@@ -37,7 +37,6 @@ build-program-x86:
   stage: build
   script:
     - dub build
-    - dub build -b ddox
 
 build-program-arm:
   tags:
@@ -46,7 +45,6 @@ build-program-arm:
   stage: build
   script:
     - dub build
-    - dub build -b ddox
 
 #----------------------------------------------------------------------
 
