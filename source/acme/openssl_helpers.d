@@ -486,8 +486,8 @@ unittest {
 	writeln("--- Create a private key ---");
 	stdout.flush;
 	char[] myPKey = openSSL_CreatePrivateKey();
-	writeln("Got the following from library:\n", myPKey);
-	stdout.flush;
+	//writeln("Got the following from library:\n", myPKey);
+	//stdout.flush;
 
 	/* Benchmark Key Generation */
 	writeln("--- Benchmark creating a private key ---");
@@ -496,7 +496,7 @@ unittest {
 		const char[] tmp = openSSL_CreatePrivateKey();
 		assert(tmp !is null && !tmp.empty, "Empty private key.");
 	}
-	auto dur = benchmark!(benchCreateKeyStub)(100);
+	auto dur = benchmark!(benchCreateKeyStub)(20);
 	writeln("Benchmarking 100 calls, duration ", dur);
 	stdout.flush;
 }
@@ -543,10 +543,10 @@ unittest {
 	writeln("--- Create a private key ---");
 	stdout.flush;
 	char[] myPKey = openSSL_CreatePrivateKey();
-	writeln("Got the following from library:\n", myPKey);
-	stdout.flush;
+	//writeln("Got the following from library:\n", myPKey);
+	//stdout.flush;
 	char[] myCSR = openSSL_CreateCertificateSignRequest(myPKey, [ "bodylove.myds.me" ]);
-	writeln("Got the following CSR from library:\n", myCSR);
+	//writeln("Got the following CSR from library:\n", myCSR);
 
 	/* Benchmark CSR Generation */
 	writeln("--- Benchmark creating a CSR ---");
@@ -555,7 +555,7 @@ unittest {
 		const char[] tmp = openSSL_CreateCertificateSignRequest(myPKey, [ "bodylove.myds.me" ]);
 		assert(tmp !is null && !tmp.empty, "Empty CSR.");
 	}
-	auto dur = benchmark!(benchCreateCSRStub)(100);
+	auto dur = benchmark!(benchCreateCSRStub)(20);
 	writeln("Benchmarking 100 calls, duration ", dur);
 	stdout.flush;
 }
