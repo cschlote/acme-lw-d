@@ -498,7 +498,7 @@ unittest {
 	}
 	enum benchloops = 20 ;
 	auto dur = benchmark!(benchCreateKeyStub)(benchloops);
-	writeln("Benchmarking ", benchloops," calls, duration ", dur / benchloops );
+	writeln("Benchmarking ", benchloops," calls, duration ", dur[0] / benchloops );
 	stdout.flush;
 }
 
@@ -558,7 +558,7 @@ unittest {
 	}
 	enum benchloops = 20 ;
 	auto dur = benchmark!(benchCreateCSRStub)(benchloops);
-	writeln("Benchmarking ", benchloops," calls, duration ", dur / benchloops);
+	writeln("Benchmarking ", benchloops," calls, duration ", dur[0] / benchloops);
 	stdout.flush;
 }
 
