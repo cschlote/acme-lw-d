@@ -496,8 +496,9 @@ unittest {
 		const char[] tmp = openSSL_CreatePrivateKey();
 		assert(tmp !is null && !tmp.empty, "Empty private key.");
 	}
-	auto dur = benchmark!(benchCreateKeyStub)(20);
-	writeln("Benchmarking 100 calls, duration ", dur);
+	enum benchloops = 20 ;
+	auto dur = benchmark!(benchCreateKeyStub)(benchloops);
+	writeln("Benchmarking ", benchloops," calls, duration ", dur / benchloops );
 	stdout.flush;
 }
 
@@ -555,8 +556,9 @@ unittest {
 		const char[] tmp = openSSL_CreateCertificateSignRequest(myPKey, [ "bodylove.myds.me" ]);
 		assert(tmp !is null && !tmp.empty, "Empty CSR.");
 	}
-	auto dur = benchmark!(benchCreateCSRStub)(20);
-	writeln("Benchmarking 100 calls, duration ", dur);
+	enum benchloops = 20 ;
+	auto dur = benchmark!(benchCreateCSRStub)(benchloops);
+	writeln("Benchmarking ", benchloops," calls, duration ", dur / benchloops);
 	stdout.flush;
 }
 
