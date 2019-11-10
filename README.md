@@ -21,10 +21,10 @@ It has the following properties.
 
 #### Building and Installing
 
-Building requires dub, openssl and curl. On Debian based systems you can
-install them with:
+Building requires dub, a working D compiler, openssl and curl. On Debian based
+systems you can install them with:
 ```
-apt-get install dub libssl-dev libcurl4-gnutls-dev
+sudo apt-get install dub libssl-dev libcurl4-openssl-dev
 ```
 
 On Red Hat based systems use this:
@@ -119,4 +119,3 @@ Optional:
 
 Nice to have:
 * Split code into a library package and an optional CLI client, which uses the library package.
-
