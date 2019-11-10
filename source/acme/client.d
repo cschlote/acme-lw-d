@@ -110,18 +110,28 @@ unittest
     "newOrder": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/new-order",
     "revokeCert": "https:\/\/acme-staging-v02.api.letsencrypt.org\/acme\/revoke-cert"
 })";
-	void testcode(string url, bool dofullasserts = false )
+	void testcode(string url, bool dofullasserts = false, char[] dldtxt = null )
 	{
 		AcmeResources test;
 		if (url is null) {
 			test.initClient();
-			test.decodeDirectoryJson(dirTestData);
+			if (dldtxt is null)
+			{
+				writeln("Decode downloaded directroy JSON.");
+				test.decodeDirectoryJson(dirTestData);
+			}
+			else
+			{
+				writeln("Decode provided directroy JSON.");
+				test.decodeDirectoryJson(dldtxt);
+			}
 		} else {
+			writeln("Call getResource() for object.");
 			test.initClient(url);
 			test.directoryUrl = url;
 			test.getResources();
 		}
-		writeln("Received directory data :\n", test.directoryJson.toPrettyString);
+		//writeln("Received directory data :\n", test.directoryJson.toPrettyString);
 		assert( test.directoryUrl !is null, "Shouldn't be null");
 
 		assert( test.keyChangeUrl !is null, "Shouldn't be null");
@@ -134,7 +144,13 @@ unittest
 			assert( test.newAuthZUrl !is null, "Shouldn't be null");
 		}
 	}
-	writeln("**** Testing AcmeResources : Decode test vector");
+
+	writeln("**** Testing AcmeResources : Decode external test vector");
+	{
+		auto downloadedDirectory = get(directoryUrlStaging);
+		testcode(null, false, downloadedDirectory);
+	}
+	writeln("**** Testing AcmeResources : Decode internal test vector");
 	testcode(null, true);
 	writeln("**** Testing AcmeResources : Use staging server : ", directoryUrlStaging);
 	testcode(directoryUrlStaging);
