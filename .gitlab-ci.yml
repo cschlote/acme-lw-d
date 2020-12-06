@@ -2,19 +2,21 @@
 # Doesn't work due to CA cert issue...
 #image: docker.vahanus.com/ubuntu-dlang-dev:latest
 
-variables:
-  GIT_SUBMODULE_STRATEGY: normal
-
-before_script:
-  - echo "Working on $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-  - if command -v docker ; then echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY_IMAGE}" ; fi
-
 stages:
   - lint
   - build
   - docs
   - test
   - deploy
+
+#----------------------------------------------------------------------
+
+default:
+  variables:
+    GIT_SUBMODULE_STRATEGY: normal
+  before_script:
+    - echo "Working on $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
+    - if command -v docker ; then echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY_IMAGE}" ; fi
 
 #----------------------------------------------------------------------
 
