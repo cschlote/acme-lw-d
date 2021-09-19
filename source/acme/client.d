@@ -349,7 +349,7 @@ public:
 		jvJWK["n"] = getBigNumberBytes(n).base64EncodeUrlSafe;
 		jwkData_ = jvJWK;
 		jwkString_ = jvJWK.toJSON;
-		jwkSHAHash_ = sha256Encode( jwkString_ );
+		jwkSHAHash_ = sha256Encode( jwkString_ ).dup;
 		jwkThumbprint_ = jwkSHAHash_.base64EncodeUrlSafe.idup;
 		//myLog("JWK:\n", jvJWK.toPrettyString);
 		myLog("JWK:\n", jvJWK.toJSON);
