@@ -15,6 +15,8 @@ variables:
 #----------------------------------------------------------------------
 
 default:
+  # Use Ubuntu-based dev image with some D compilers and dub installed
+  image: "gitlab.vahanus.net:5050/vahanus/public/container-ubuntu-dlang-dev:latest"
   before_script:
     - echo "Working on $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
     - if command -v docker ; then echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY_IMAGE}" ; fi
@@ -23,20 +25,20 @@ default:
 
 lint-program:
   tags:
-    - gitlabshell
-    - docker
+    - gitlabdocker
   stage: lint
+  allow_failure: true
   script:
     - echo "linting $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-    - dub fetch dscanner
-    - dub run dscanner -- --report source
+    #- dub fetch dscanner
+    #- dub run dscanner -- --report source
+    - dub lint
 
 #----------------------------------------------------------------------
 
 build-program-x86:
   tags:
-    - gitlabshell
-    - docker
+    - gitlabdocker
   stage: build
   script:
     - dub build
@@ -45,6 +47,7 @@ build-program-arm:
   tags:
     - arm-gitlabshell
     - docker
+  allow_failure: true
   stage: build
   script:
     - dub build
@@ -53,8 +56,7 @@ build-program-arm:
 
 test program-x86:
   tags:
-    - gitlabshell
-    - docker
+    - gitlabdocker
   stage: test
   script:
     - dub test
@@ -63,6 +65,7 @@ test program-arm:
   tags:
     - arm-gitlabshell
     - docker
+  allow_failure: true
   stage: test
   script:
     - dub test
@@ -71,9 +74,9 @@ test program-arm:
 
 build docs:
   tags:
-    - gitlabshell
-    - docker
+    - gitlabdocker
   stage: docs
+  allow_failure: true
   script:
     - dub build -b ddox
 
@@ -135,8 +138,7 @@ test-arm32v7-gitlabdocker:
 
 deploy-program:
   tags:
-    - gitlabshell
-    - docker
+    - gitlabdocker
   stage: deploy
   script:
     - echo "Deploy!"
