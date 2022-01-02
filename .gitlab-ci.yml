@@ -18,8 +18,8 @@ default:
   # Use Ubuntu-based dev image with some D compilers and dub installed
   image: "gitlab.vahanus.net:5050/vahanus/public/container-ubuntu-dlang-dev:latest"
   before_script:
-    - echo "Working on $CI_COMMIT_REF_NAME / $CI_COMMIT_SHA ..."
-    - if command -v docker ; then echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY_IMAGE}" ; fi
+    - command -v docker && docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY || true
+    - command -v docker && docker info || true
 
 #----------------------------------------------------------------------
 
