@@ -207,7 +207,7 @@ char[] signDataWithSHA256(char[] s, EVP_PKEY* privateKey)
 	{
 		throw new AcmeException("Error creating SHA256 digest in final signature");
 	}
-	return base64EncodeUrlSafe(sig[0..rc]);
+	return base64EncodeUrlSafe(sig[0..rc].dup);
 }
 
 version (HAS_WORKING_SSL)
@@ -218,7 +218,7 @@ version (HAS_WORKING_SSL)
 	 * Returns:
 	 *   true or false
 	 */
-	bool SSL_OpenLibrary()
+	bool openSSL_OpenLibrary()
 	{
 		/* Load the human readable error strings for libcrypto */
 		OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS, null);
@@ -233,9 +233,9 @@ version (HAS_WORKING_SSL)
 
 	/** Teardown SSL library
 	 *
-	 * Reverse anything done in SSL_OpenLibrary().
+	 * Reverse anything done in openSSL_OpenLibrary().
 	 */
-	void SSL_CloseLibrary()
+	void openSSL_CloseLibrary()
 	{
 		/* Clean up */
 		OPENSSL_cleanup();
@@ -251,7 +251,7 @@ version (HAS_WORKING_SSL)
 	 * Returns: pointer to EVP_PKEY structure
 	 * @internal
 	 */
-	EVP_PKEY* SSL_x509_make_pkey(int bits = 4096)
+	EVP_PKEY* openSSL_x509_make_pkey(int bits = 4096)
 	{
 		EVP_PKEY * pkey;
 		pkey = EVP_PKEY_new();
@@ -293,11 +293,11 @@ version (HAS_WORKING_SSL)
 	 * @param dev_serial pointer to device serial string
 	 * Returns: pointer to X509_REQ structure
 	 */
-	X509_REQ* SSL_x509_make_csr(EVP_PKEY* pkey, string[] domainNames)
+	X509_REQ* openSSL_x509_make_csr(EVP_PKEY* pkey, string[] domainNames)
 	{
 		assert(domainNames.length >= 1, "No domain names given.");
 		auto cnStr = domainNames[0].toStringz;
-		string[] extStrs; extStrs.length = domainNames.length - 1;
+		string[] extStrs; extStrs.length = (cast(int) domainNames.length) - 1;
 
 		X509_REQ * x509_req;
 		x509_req = X509_REQ_new();
@@ -354,17 +354,17 @@ version (HAS_WORKING_SSL)
 			// authorityKeyIdentifier = keyid,issuer
 			// keyUsage = critical, nonRepudiation, digitalSignature, keyEncipherment
 			// extendedKeyUsage = clientAuth, emailProtection
-
+			bool rc;
 			/* Add various extensions: standard extensions */
-			add_req_ext(exts, NID_basic_constraints, "CA:FALSE");
-			add_req_ext(exts, NID_key_usage, "critical, nonRepudiation, digitalSignature, keyEncipherment");
-			add_req_ext(exts, NID_ext_key_usage, "clientAuth, emailProtection");
-			add_req_ext(exts, NID_subject_key_identifier, "hash");
-			add_req_ext(exts, NID_authority_key_identifier, "keyid,issuer");
+			rc = add_req_ext(exts, NID_basic_constraints, "CA:FALSE");
+			rc = add_req_ext(exts, NID_key_usage, "critical, nonRepudiation, digitalSignature, keyEncipherment");
+			rc = add_req_ext(exts, NID_ext_key_usage, "clientAuth, emailProtection");
+			rc = add_req_ext(exts, NID_subject_key_identifier, "hash");
+			rc = add_req_ext(exts, NID_authority_key_identifier, "keyid,issuer");
 
 			/* Some Netscape specific extensions */
-			add_req_ext(exts, NID_netscape_cert_type, "client, email");
-			add_req_ext(exts, NID_netscape_comment, "OpenSSL Generated Client Certificate");
+			rc = add_req_ext(exts, NID_netscape_cert_type, "client, email");
+			rc = add_req_ext(exts, NID_netscape_comment, "OpenSSL Generated Client Certificate");
 
 			X509_REQ_add_extensions(x509_req, exts);
 
@@ -385,22 +385,22 @@ else
 	import acme.openssl_glues;
 
 	/** Initialize library */
-	void SSL_OpenLibrary()
+	void openSSL_OpenLibrary()
 	{
 		stubSSL_OpenLibrary();
 	}
 	/** Close library */
-	void SSL_CloseLibrary()
+	void openSSL_CloseLibrary()
 	{
 		stubSSL_CloseLibrary();
 	}
 	/** Make a private key */
-	EVP_PKEY* SSL_x509_make_pkey(int bits)
+	EVP_PKEY* openSSL_x509_make_pkey(int bits)
 	{
 		return stubSSL_EVP_PKEY_makePrivateKey(bits);
 	}
 	/** Make a CSR */
-	X509_REQ* SSL_x509_make_csr(EVP_PKEY* pkey, string[] domainNames)
+	X509_REQ* openSSL_x509_make_csr(EVP_PKEY* pkey, string[] domainNames)
 	{
 		char*[] C_domainNames;
 		C_domainNames.length =  domainNames.length;
@@ -412,7 +412,7 @@ else
 
 
 /** Get a CSR as PEM string */
-char[] SSL_x509_get_PEM(X509_REQ* x509_req)
+char[] openSSL_x509_get_PEM(X509_REQ* x509_req)
 {
 	char* rs = stubSSL_X509_REQ_getAsPEM(x509_req);
 	import std.string : fromStringz;
@@ -420,7 +420,7 @@ char[] SSL_x509_get_PEM(X509_REQ* x509_req)
 }
 
 /** Get a CSR as base64url-encoded DER string */
-char[] SSL_x509_get_DER_as_B64URL(X509_REQ* x509_req)
+char[] openSSL_x509_get_DER_as_B64URL(X509_REQ* x509_req)
 {
 	ubyte[2048] b;
 	auto rc = stubSSL_X509_REQ_getAsDER(x509_req, b.ptr, b.length.to!int);
@@ -430,7 +430,7 @@ char[] SSL_x509_get_DER_as_B64URL(X509_REQ* x509_req)
 
 /** Read a x509 pkey pem string from memory
  */
-EVP_PKEY* SSL_x509_read_pkey_memory(const char[] pkeyString, RSA** rsaRef)
+EVP_PKEY* openSSL_x509_read_pkey_memory(const char[] pkeyString, RSA** rsaRef)
 {
 	auto cstr = cast(char*)pkeyString.toStringz;
 	return stubSSL_EVP_PKEY_readPkeyFromMemory(cstr, rsaRef);
@@ -442,7 +442,7 @@ EVP_PKEY* SSL_x509_read_pkey_memory(const char[] pkeyString, RSA** rsaRef)
  * Returns: return value of PEM_write_PrivateKey()
  * @internal
  */
-int SSL_x509_write_pkey(char[] path, EVP_PKEY * pkey)
+int openSSL_x509_write_pkey(char[] path, EVP_PKEY * pkey)
 {
 	return stubSSL_EVP_PKEY_writePrivateKey( cast(char*)(path.toStringz), pkey);
 }
@@ -452,7 +452,7 @@ int SSL_x509_write_pkey(char[] path, EVP_PKEY * pkey)
  * Returns: pointer to EVP_PKEY, return value of PEM_write_PrivateKey()
  * @internal
  */
-EVP_PKEY * SSL_x509_read_pkey(char[] path)
+EVP_PKEY * openSSL_x509_read_pkey(char[] path)
 {
 	return stubSSL_EVP_PKEY_readPrivateKey(cast(char*)(path.toStringz));
 }
@@ -468,13 +468,12 @@ EVP_PKEY * SSL_x509_read_pkey(char[] path)
  * Returns:
  * 		pointer to pem encoded string containing EVP_PKEY private key.
  */
-char[] openSSL_CreatePrivateKey(int bits = 4096)
+const(char[]) openSSL_CreatePrivateKey(int bits = 4096)
 {
 	//import std.stdio;
 	//writeln("Create a SSL pKey.");
-	char[] rs;
-	char* cs = stubSSL_createPrivateKey(bits);
-	rs = cs.fromStringz;
+	const char* cs = stubSSL_createPrivateKey(bits);
+	const char[] rs = cs.fromStringz;
 	return rs;
 }
 unittest {
@@ -485,9 +484,10 @@ unittest {
 	writeln("Testing the SSL routines ported from C");
 	writeln("--- Create a private key ---");
 	stdout.flush;
-	char[] myPKey = openSSL_CreatePrivateKey();
+	const char[] myPKey = openSSL_CreatePrivateKey();
 	//writeln("Got the following from library:\n", myPKey);
 	//stdout.flush;
+	assert (myPKey.length);
 
 	/* Benchmark Key Generation */
 	writeln("--- Benchmark creating a private key ---");
@@ -518,20 +518,21 @@ char[] openSSL_CreateCertificateSignRequest(const char[] prkey, string[] domainN
 	/* Get EVP_PKEY from PEM encoded string */
 	EVP_PKEY* pkey;
 	RSA* rsa;
-	pkey = SSL_x509_read_pkey_memory(prkey, &rsa);
+	pkey = openSSL_x509_read_pkey_memory(prkey, &rsa);
 
 	/* Create CSR from private key and serial number */
 
-	X509_REQ* x509_req = SSL_x509_make_csr(pkey, domainNames);
+	X509_REQ* x509_req = openSSL_x509_make_csr(pkey, domainNames);
 	assert (x509_req !is null, "Returned empty cert req.");
 
 	/* Convert to PEM string */
-	auto pemStr = SSL_x509_get_PEM(x509_req);
+	const auto pemStr = openSSL_x509_get_PEM(x509_req);
 	import std.stdio : writeln;
 	//writeln("CSR(PEM):", pemStr);
+	assert (pemStr.length);
 
 	/* Convert to DER with base64url-encoded data */
-	auto rs = SSL_x509_get_DER_as_B64URL(x509_req);
+	auto rs = openSSL_x509_get_DER_as_B64URL(x509_req);
 	stubSSL_EVP_PKEY_free(pkey);
 	return rs;
 }
@@ -543,11 +544,12 @@ unittest {
 	writeln("Testing the CSR-creation routines ported from C");
 	writeln("--- Create a private key ---");
 	stdout.flush;
-	char[] myPKey = openSSL_CreatePrivateKey();
+	const char[] myPKey = openSSL_CreatePrivateKey();
 	//writeln("Got the following from library:\n", myPKey);
 	//stdout.flush;
-	char[] myCSR = openSSL_CreateCertificateSignRequest(myPKey, [ "bodylove.myds.me" ]);
+	const char[] myCSR = openSSL_CreateCertificateSignRequest(myPKey, [ "bodylove.myds.me" ]);
 	//writeln("Got the following CSR from library:\n", myCSR);
+	assert (myCSR.length);
 
 	/* Benchmark CSR Generation */
 	writeln("--- Benchmark creating a CSR ---");

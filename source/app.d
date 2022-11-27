@@ -163,7 +163,7 @@ int main(string[] args)
 		import std.datetime : DateTime, SysTime, Clock, dur;
 		auto expdate = certificate.getExpiry();
 		writeln("Certificate expires on " ~ expdate.toSimpleString);
-		SysTime today = Clock.currTime();
+		const SysTime today = Clock.currTime();
 		if (!argForceUpdate && cast(DateTime)today < (expdate - dur!"weeks"(4)) )
 		{
 			writeln("No need to update the certificate. Use --force flag.");

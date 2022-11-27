@@ -30,7 +30,7 @@ int stubSSL_ASN1_TIME_diff(int *pday, int *psec, ASN1_TIME *from, ASN1_TIME *to)
 /** Print human readable */
 BIO* stubSSL_ASN1_TIME_print(const ASN1_TIME *s);
 /** Get time as time_t structure */
-time_t ASN1_GetTimeT(const ASN1_TIME* time);
+time_t stubSSL_ASN1_GetTimeT(const ASN1_TIME* time);
 
 /* BIGNUM access functions ------------------------------------------------ */
 

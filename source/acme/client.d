@@ -86,7 +86,8 @@ struct AcmeResources
 		}
 		catch (Exception e)
 		{
-			string msg = "Unable to initialize resource url from " ~ this.directoryUrl ~ ": (" ~ typeof(e).stringof ~ ")" ~ e.msg;
+			string msg = "Unable to initialize resource url from " ~
+				this.directoryUrl ~ ": (" ~ typeof(e).stringof ~ ")" ~ e.msg;
 			throw new AcmeException(msg, __FILE__, __LINE__, e );
 		}
 	}
@@ -187,9 +188,9 @@ struct Certificate
 		{
 			import acme.openssl_glues;
 			import core.stdc.time;
-			time_t unixTime = ASN1_GetTimeT(t);
+			time_t unixTime = stubSSL_ASN1_GetTimeT(t);
 			auto stdTime = unixTimeToStdTime(unixTime);
-			auto st = SysTime(stdTime);
+			const auto st = SysTime(stdTime);
 			auto dt = cast(DateTime)st;
 			return dt;
 		}
@@ -330,11 +331,11 @@ public:
 		beVerbose_ = beVerbose;
 
 		acmeRes.initClient( useStagingServer ? directoryUrlStaging : directoryUrlProd);
-		SSL_OpenLibrary();
+		openSSL_OpenLibrary();
 
 		/* Create the private key */
 		RSA* rsa;
-		privateKey_ = SSL_x509_read_pkey_memory( cast(const(char[]))accountPrivateKey, &rsa);
+		privateKey_ = openSSL_x509_read_pkey_memory( cast(const(char[]))accountPrivateKey, &rsa);
 
 		BIGNUM* n;
 		BIGNUM* e;
@@ -357,7 +358,7 @@ public:
 		myLog("Thumbprint of JWK:\n", jwkThumbprint_);
 	}
 	~this () {
-		SSL_CloseLibrary();
+		openSSL_CloseLibrary();
 	}
 
 	/** Call once after instantiating AcmeClient to setup parameters
@@ -542,7 +543,7 @@ public:
 			pragma(msg,"Has no public JSONType - skip test");
 			enum bool typeTestOk = true;
 		} else {
-			bool typeTestOk = json["status"].type == JSONType.string;
+			const bool typeTestOk = json["status"].type == JSONType.string;
 		}
 		if ( ("status" in json) &&
 			 (typeTestOk) &&
