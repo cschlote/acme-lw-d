@@ -183,7 +183,7 @@ struct Certificate
 	DateTime getExpiry() const
 	{
 		import acme.openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_diff;
-		static const(DateTime) extractor(const ASN1_TIME * t)
+		static const(DateTime) extractor(const(ASN1_TIME) * t)
 		{
 			import acme.openssl_glues;
 			import core.stdc.time;

@@ -1,19 +1,23 @@
+/* DI file to call openssl_glues.c code */
+module acme.openssl_glues;
+import core.stdc.time;
+extern(C) :
 
 /* SSL Wrapper - C code to directly interface libssl and libcrypto */
 
 /* Library initialisation ------------------------------------------------- */
 
 /** Open and Initialize the OpenSSL library */
-void stubSSL_OpenLibrary(void);
+void stubSSL_OpenLibrary();
 /** Close the OpenSSL library and free resources */
-void stubSSL_CloseLibrary(void);
+void stubSSL_CloseLibrary();
 
 /* BIO related functions -------------------------------------------------- */
 
 /** Opaque structure for BIO */
 struct BIO;
 /** Create new BIO with BIO_s_mem argument */
-BIO* stubSSL_BIO_new_BIO_s_mem(void);
+BIO* stubSSL_BIO_new_BIO_s_mem();
 /** Get string from BIO */
 int stubSSL_BIO_gets(BIO *b, char *buf, int size);
 /** Free a BIO */

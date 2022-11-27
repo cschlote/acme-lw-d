@@ -109,7 +109,7 @@ BIO* stubSSL_ASN1_TIME_print(const ASN1_TIME *s)
 	return b;
 }
 
-time_t ASN1_GetTimeT(ASN1_TIME* time)
+time_t ASN1_GetTimeT(const ASN1_TIME* time)
 {
     struct tm t;
     const char* str = (const char*) time->data;

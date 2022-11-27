@@ -2,7 +2,7 @@
 DFLAGS = -g -release -betterC -Oz -vgc
 CFLAGS = -g -Os -Wall -Wpedantic
 
-OBJS = openssl_glues.o openssl_glues.di
+OBJS = openssl_glues.o ../acme/openssl_glues.di
 
 # DISASM = $(OBJS:%.o=%.asm)
 
@@ -15,13 +15,13 @@ OBJS = openssl_glues.o openssl_glues.di
 %.o : %.c %.h
 	$(CROSSCOMPILE)$(CC) -c $(CFLAGS) $< -o ${DUB_PACKAGE_DIR}$@
 
-openssl_glues.di : openssl_glues.h Makefile
+../acme/openssl_glues.di : openssl_glues.h Makefile
 	@echo "Create DI file : openssl_glues.di"
-	@echo "/* DI file to call openssl_glues.c code */" > openssl_glues.di
-	@echo "module acme.openssl_glues;" >> openssl_glues.di
-	@echo "import core.stdc.time;" >> openssl_glues.di
-	@echo "extern(C) :" >> openssl_glues.di
-	@cat $< | sed -e 's/(void)/()/g' >> openssl_glues.di
+	@echo "/* DI file to call openssl_glues.c code */" > $@
+	@echo "module acme.openssl_glues;" >> $@
+	@echo "import core.stdc.time;" >> $@
+	@echo "extern(C) :" >> $@
+	@cat $< | sed -e 's/(void)/()/g' >> $@
 
 all : $(OBJS) $(DISASM)
 
