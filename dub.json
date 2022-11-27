@@ -14,5 +14,5 @@
 	"sourceFiles": [ "openssl_glues.o" ],
 	"mainSourceFile": "source/app.d",
 	"targetType": "executable",
-	"preBuildCommands": [ "pwd", "make -C $${DUB_PACKAGE_DIR}/source/acme/ all"]
+	"preBuildCommands": [ "pwd", "make -C $${DUB_PACKAGE_DIR}/source/c_stubs/ all"]
 }
