@@ -8,6 +8,7 @@
 	"name": "acme-lw-d",
 	"versions": [ "dummy" ],
 	"dependencies": {
+		"silly": "~>1.2.0-dev.2"
 	},
 	"lflags": [ "-lcurl","-lssl","-lcrypto" ],
 	"sourcePaths": [ "source/acme" ],
