@@ -46,7 +46,11 @@ int stubSSL_getBigNumberBytes(const BIGNUM* bn, void* buffer, int buffer_len);
 /** Opaque structure */
 struct RSA;
 /** Get RSA keys */
-void stubSSL_RSA_Get0_key(RSA*rsa, const BIGNUM** n, const BIGNUM** e, const BIGNUM** d);
+#if OPENSSL_VERSION_NUMBER < 0x30000000L	
+void stubSSL_RSA_Get0_key(RSA *rsa, const BIGNUM **n, const BIGNUM **e, const BIGNUM **d);
+#else
+void stubSSL_RSA_Get0_key(EVP_PKEY *rsa, const BIGNUM **n, const BIGNUM **e, const BIGNUM **d);
+#endif
 
 /* EVP_PKEY access functions ---------------------------------------------- */
 

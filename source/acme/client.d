@@ -340,7 +340,8 @@ public:
 		BIGNUM* n;
 		BIGNUM* e;
 		BIGNUM* d;
-		stubSSL_RSA_Get0_key(rsa, &n, &e, &d);
+		//stubSSL_RSA_Get0_key(rsa, &n, &e, &d);
+		stubSSL_RSA_Get0_key(privateKey_, &n, &e, &d);
 
 		// https://tools.ietf.org/html/rfc7638
 		// JSON Web Key (JWK) Thumbprint
