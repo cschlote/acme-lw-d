@@ -183,12 +183,12 @@ struct Certificate
 	*/
 	DateTime getExpiry() const
 	{
-		import acme.openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_diff;
+		import openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_diff;
 		static const(DateTime) extractor(const(ASN1_TIME) * t)
 		{
-			import acme.openssl_glues;
+			import openssl_glues;
 			import core.stdc.time;
-			time_t unixTime = stubSSL_ASN1_GetTimeT(t);
+			time_t unixTime = stubSSL_ASN1_GetTimeT(cast(ASN1_TIME*)t);
 			auto stdTime = unixTimeToStdTime(unixTime);
 			const auto st = SysTime(stdTime);
 			auto dt = cast(DateTime)st;
@@ -209,10 +209,10 @@ struct Certificate
 	*/
 	string getExpiryDisplay() const
 	{
-		import acme.openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_print, BIO, stubSSL_BIO_free;
+		import openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_print, BIO, stubSSL_BIO_free;
 		string extractor(const ASN1_TIME * t)
 		{
-			BIO* b = stubSSL_ASN1_TIME_print(t);
+			BIO* b = stubSSL_ASN1_TIME_print(cast(ASN1_TIME*)t);
 			scope(exit) stubSSL_BIO_free(b);
 			return b.toVector.to!string;
 		}
@@ -230,7 +230,7 @@ struct Certificate
 class AcmeClient
 {
 private:
-	import acme.openssl_glues : EVP_PKEY;
+	import openssl_glues : EVP_PKEY;
 	EVP_PKEY*   privateKey_;     /// Copy of private key as ASC PEM
 
 	JSONValue   jwkData_;        /// JWK object as JSONValue tree
@@ -327,7 +327,7 @@ public:
 	 */
 	this(string accountPrivateKey, bool beVerbose = false)
 	{
-		import acme.openssl_glues : RSA, BIGNUM, stubSSL_RSA_Get0_key;
+		import openssl_glues : RSA, BIGNUM, stubSSL_RSA_Get0_key;
 		beVerbose_ = beVerbose;
 
 		acmeRes.initClient( useStagingServer ? directoryUrlStaging : directoryUrlProd);

@@ -2,7 +2,7 @@
 	"authors": [
 		"Carsten Schlote"
 	],
-	"copyright": "Copyright © 2019, Carsten Schlote",
+	"copyright": "Copyright © 2019-2024, Carsten Schlote",
 	"description": "A lightweight ACME protocol client written in the D computer language",
 	"license": "BSL-1.0",
 	"name": "acme-lw-d",
@@ -11,8 +11,7 @@
 	},
 	"lflags": [ "-lcurl","-lssl","-lcrypto" ],
 	"sourcePaths": [ "source/acme" ],
-	"sourceFiles": [ "openssl_glues.o" ],
+	"cSourcePaths": [ "source/c_stubs" ],
 	"mainSourceFile": "source/app.d",
-	"targetType": "executable",
-	"preBuildCommands": [ "pwd", "make -C $${DUB_PACKAGE_DIR}/source/c_stubs/ all"]
+	"targetType": "executable"
 }
