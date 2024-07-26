@@ -358,6 +358,7 @@ public:
 		myLog("SHA of JWK:\n", jwkSHAHash_);
 		myLog("Thumbprint of JWK:\n", jwkThumbprint_);
 	}
+	/// Destructor
 	~this () {
 		openSSL_CloseLibrary();
 	}
