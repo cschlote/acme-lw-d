@@ -416,6 +416,7 @@ char *stubSSL_X509_REQ_getAsPEM(X509_REQ *x509_req)
 	{
 		return NULL;
 	}
+	char *strndup(const char *s, size_t n);
 	char *rs = strndup(mem->data, mem->length);
 	BIO_free(bio);
 	return rs;
@@ -557,6 +558,7 @@ char *stubSSL_createPrivateKey(int bits)
 				}
 				else
 				{
+					char *strndup(const char *s, size_t n);
 					if (mem->data != NULL)
 						rs = strndup(mem->data, mem->length);
 					if (rs == NULL || strlen(rs) == 0)
