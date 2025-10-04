@@ -186,9 +186,8 @@ struct Certificate
 		import openssl_glues : ASN1_TIME, stubSSL_ASN1_TIME_diff;
 		static const(DateTime) extractor(const(ASN1_TIME) * t)
 		{
-			import openssl_glues;
-			import core.stdc.time;
-			time_t unixTime = stubSSL_ASN1_GetTimeT(cast(ASN1_TIME*)t);
+			import openssl_glues; // Uses ImportC feature!
+			auto unixTime = stubSSL_ASN1_GetTimeT(cast(ASN1_TIME*)t);
 			auto stdTime = unixTimeToStdTime(unixTime);
 			const auto st = SysTime(stdTime);
 			auto dt = cast(DateTime)st;
